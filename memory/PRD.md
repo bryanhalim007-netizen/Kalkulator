@@ -38,6 +38,8 @@ ke pembeli dan form penjualan yang tersimpan ke riwayat. Login PIN. Tema Merah &
 - [x] Riwayat Penjualan list + empty state + delete (soft) (2026-06)
 - [x] Backend Sales CRUD (POST/GET/GET id/DELETE soft) (2026-06)
 - [x] Full E2E testing passed 100% (backend 9/9, frontend 13 steps) (2026-06)
+- [x] Nota WhatsApp dirapikan tanpa emoji (garis, bold, blok harga rata kanan) (2026-06)
+- [x] Toggle Sembunyikan/Tampilkan Keypad huruf di Home (2026-06)
 
 ## Backlog (prioritized)
 - P1: Ringkasan penjualan (total omzet & margin per hari/bulan).

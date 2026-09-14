@@ -6,6 +6,8 @@ import {
   Backspace,
   ClockCounterClockwise,
   Eye,
+  EyeSlash,
+  Keyboard as KeyboardIcon,
   Receipt,
   TrashSimple,
 } from "phosphor-react-native";
@@ -36,6 +38,12 @@ export default function HomeScreen() {
   const [letters, setLetters] = useState<string[]>([]);
   const [mode, setMode] = useState<"calc" | "jual">("calc");
   const [marginText, setMarginText] = useState("");
+  const [keypadHidden, setKeypadHidden] = useState(false);
+
+  const toggleKeypad = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setKeypadHidden((v) => !v);
+  };
 
   const digits = lettersToDigits(letters);
   const hargaModal = digitsToModal(digits);
@@ -214,28 +222,47 @@ export default function HomeScreen() {
 
         {/* Keypad (calc mode only) */}
         {mode === "calc" && (
-          <View style={styles.keypad} testID="letter-keypad">
-            {KEYPAD_LETTERS.map((l) => (
-              <Pressable
-                key={l}
-                testID={`key-${l}`}
-                onPress={() => pressLetter(l)}
-                style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
-              >
-                <Text style={styles.keyLetter}>{l}</Text>
-                <Text style={styles.keyHint}>
-                  {l === "Z" ? "×2" : LETTER_TO_DIGIT[l]}
-                </Text>
-              </Pressable>
-            ))}
+          <>
             <Pressable
-              testID="key-backspace"
-              onPress={backspace}
-              style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
+              testID="toggle-keypad-button"
+              onPress={toggleKeypad}
+              style={({ pressed }) => [styles.toggleKeypad, pressed && { opacity: 0.6 }]}
+              hitSlop={8}
             >
-              <Backspace size={26} color={colors.onSurface} weight="bold" />
+              {keypadHidden ? (
+                <KeyboardIcon size={16} color={colors.muted} weight="bold" />
+              ) : (
+                <EyeSlash size={16} color={colors.muted} weight="bold" />
+              )}
+              <Text style={styles.toggleKeypadText}>
+                {keypadHidden ? "Tampilkan Keypad" : "Sembunyikan Keypad"}
+              </Text>
             </Pressable>
-          </View>
+            {!keypadHidden && (
+              <View style={styles.keypad} testID="letter-keypad">
+                {KEYPAD_LETTERS.map((l) => (
+                  <Pressable
+                    key={l}
+                    testID={`key-${l}`}
+                    onPress={() => pressLetter(l)}
+                    style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
+                  >
+                    <Text style={styles.keyLetter}>{l}</Text>
+                    <Text style={styles.keyHint}>
+                      {l === "Z" ? "×2" : LETTER_TO_DIGIT[l]}
+                    </Text>
+                  </Pressable>
+                ))}
+                <Pressable
+                  testID="key-backspace"
+                  onPress={backspace}
+                  style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
+                >
+                  <Backspace size={26} color={colors.onSurface} weight="bold" />
+                </Pressable>
+              </View>
+            )}
+          </>
         )}
       </KeyboardAwareScrollView>
 
@@ -462,6 +489,19 @@ const useStyles = makeStyles((colors) => ({
     flexWrap: "wrap",
     justifyContent: "space-between",
     rowGap: 12,
+  },
+  toggleKeypad: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  toggleKeypadText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.muted,
   },
   key: {
     width: "31.5%",
