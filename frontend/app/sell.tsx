@@ -40,7 +40,7 @@ export default function SellScreen() {
   const [tanggal, setTanggal] = useState(todayLabel());
   const [namaPembeli, setNamaPembeli] = useState("");
   const [namaBarang, setNamaBarang] = useState("");
-  const [kodeBarang, setKodeBarang] = useState("");
+  const [kodeBarang, setKodeBarang] = useState(params.kode ?? "");
   const [ukuranWarna, setUkuranWarna] = useState("");
   const [hargaModal, setHargaModal] = useState(
     formatNumber(Number(params.hargaModal ?? 0)),

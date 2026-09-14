@@ -1,10 +1,11 @@
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Bicycle, TrashSimple } from "phosphor-react-native";
+import { ArrowLeft, Bicycle, TrashSimple, WhatsappLogo } from "phosphor-react-native";
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Pressable,
   RefreshControl,
   Text,
@@ -19,6 +20,26 @@ import { fonts, makeStyles, useTheme } from "@/src/theme";
 
 const EMPTY_IMAGE =
   "https://images.unsplash.com/photo-1595886068978-59624dde48d1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHwxfHxlbXB0eSUyMGNsaXBib2FyZCUyMGRlc2t8ZW58MHx8fGJsYWNrfDE3ODkzODgyOTB8MA&ixlib=rb-4.1.0&q=85";
+
+// WhatsApp tujuan (08125559681 -> format internasional).
+const WA_NUMBER = "628125559681";
+
+function buildSaleMessage(item: Sale): string {
+  const line = (label: string, value?: string | null) =>
+    `${label}: ${value && String(value).length ? value : "-"}`;
+  return [
+    "*Rincian Penjualan - BikePOS*",
+    "",
+    line("Tanggal Penjualan", item.tanggal_penjualan || formatTanggal(item.created_at)),
+    line("Nama Pembeli", item.nama_pembeli),
+    line("Nama Barang", item.nama_barang),
+    line("Kode Barang", item.kode_barang),
+    line("Ukuran & Warna", item.ukuran_warna),
+    line("Harga Modal", formatRupiah(item.harga_modal)),
+    line("Margin", formatRupiah(item.margin)),
+    line("Harga Jual", formatRupiah(item.harga_jual)),
+  ].join("\n");
+}
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
@@ -37,6 +58,23 @@ export default function HistoryScreen() {
     });
   };
 
+  const onShare = async (sale: Sale) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const text = encodeURIComponent(buildSaleMessage(sale));
+    const appUrl = `whatsapp://send?phone=${WA_NUMBER}&text=${text}`;
+    const webUrl = `https://wa.me/${WA_NUMBER}?text=${text}`;
+    try {
+      const canOpen = await Linking.canOpenURL(appUrl);
+      await Linking.openURL(canOpen ? appUrl : webUrl);
+    } catch {
+      try {
+        await Linking.openURL(webUrl);
+      } catch {
+        toast.show("WhatsApp tidak tersedia", "error");
+      }
+    }
+  };
+
   const renderItem = ({ item }: { item: Sale }) => (
     <View style={styles.card} testID={`sale-card-${item.id}`}>
       <View style={styles.cardTop}>
@@ -50,14 +88,24 @@ export default function HistoryScreen() {
               .join(" • ") || formatTanggal(item.created_at)}
           </Text>
         </View>
-        <Pressable
-          testID={`delete-sale-${item.id}`}
-          onPress={() => onDelete(item)}
-          hitSlop={8}
-          style={({ pressed }) => [styles.delBtn, pressed && { opacity: 0.6 }]}
-        >
-          <TrashSimple size={18} color={colors.muted} weight="bold" />
-        </Pressable>
+        <View style={styles.cardActions}>
+          <Pressable
+            testID={`share-sale-${item.id}`}
+            onPress={() => onShare(item)}
+            hitSlop={8}
+            style={({ pressed }) => [styles.shareBtn, pressed && { opacity: 0.7 }]}
+          >
+            <WhatsappLogo size={18} color={colors.success} weight="fill" />
+          </Pressable>
+          <Pressable
+            testID={`delete-sale-${item.id}`}
+            onPress={() => onDelete(item)}
+            hitSlop={8}
+            style={({ pressed }) => [styles.delBtn, pressed && { opacity: 0.6 }]}
+          >
+            <TrashSimple size={18} color={colors.muted} weight="bold" />
+          </Pressable>
+        </View>
       </View>
 
       {(item.kode_barang || item.ukuran_warna) && (
@@ -187,6 +235,15 @@ const useStyles = makeStyles((colors) => ({
     padding: 16,
   },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  cardActions: { flexDirection: "row", gap: 8 },
+  shareBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceTertiary,
+  },
   cardTitle: {
     fontFamily: fonts.semibold,
     fontSize: 16,
