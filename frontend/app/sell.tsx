@@ -27,7 +27,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DatePickerModal } from "@/src/components/date-picker-modal";
 import { Segmented } from "@/src/components/segmented";
 import { useToast } from "@/src/components/toast";
-import { fileUrl, uploadImage, useCreateSale, useSale, useUpdateSale } from "@/src/lib/api";
+import { salePhotos, saveImage, useCreateSale, useSale, useUpdateSale } from "@/src/lib/api";
 import { formatNumber, parseNumberInput } from "@/src/lib/format";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
 
@@ -105,8 +105,7 @@ export default function SellScreen() {
     null,
   );
   const [alamatPengiriman, setAlamatPengiriman] = useState("");
-  const [fotoPath, setFotoPath] = useState<string | null>(null);
-  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [prefilled, setPrefilled] = useState(false);
 
@@ -126,22 +125,20 @@ export default function SellScreen() {
     setSudahDiambil(editSale.sudah_diambil ?? null);
     setMetodePengambilan(editSale.metode_pengambilan ?? null);
     setAlamatPengiriman(editSale.alamat_pengiriman ?? "");
-    setFotoPath(editSale.foto_path ?? null);
-    setFotoPreview(fileUrl(editSale.foto_path));
+    setPhotos(salePhotos(editSale));
     setPrefilled(true);
   }, [isEdit, editSale, prefilled]);
 
-  const doUpload = async (uri: string) => {
+  const addPhotos = async (uris: string[]) => {
     setUploading(true);
-    setFotoPreview(uri);
     try {
-      const path = await uploadImage(uri);
-      setFotoPath(path);
+      for (const uri of uris) {
+        const saved = await saveImage(uri);
+        setPhotos((prev) => [...prev, saved]);
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      toast.show("Foto terunggah", "success");
     } catch (e: any) {
-      setFotoPreview(fileUrl(fotoPath));
-      toast.show(e?.message || "Gagal mengunggah foto", "error");
+      toast.show(e?.message || "Gagal menyimpan foto", "error");
     } finally {
       setUploading(false);
     }
@@ -178,9 +175,12 @@ export default function SellScreen() {
     if (!(await ensurePermission("gallery"))) return;
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
+      allowsMultipleSelection: true,
       quality: 0.6,
     });
-    if (!res.canceled && res.assets?.[0]) doUpload(res.assets[0].uri);
+    if (!res.canceled && res.assets?.length) {
+      addPhotos(res.assets.map((a) => a.uri));
+    }
   };
 
   const takePhoto = async () => {
@@ -190,13 +190,12 @@ export default function SellScreen() {
       mediaTypes: ["images"],
       quality: 0.6,
     });
-    if (!res.canceled && res.assets?.[0]) doUpload(res.assets[0].uri);
+    if (!res.canceled && res.assets?.[0]) addPhotos([res.assets[0].uri]);
   };
 
-  const removePhoto = () => {
+  const removePhoto = (idx: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setFotoPath(null);
-    setFotoPreview(null);
+    setPhotos((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const onSave = () => {
@@ -214,7 +213,8 @@ export default function SellScreen() {
       sudah_diambil: sudahDiambil,
       metode_pengambilan: metodePengambilan,
       alamat_pengiriman: alamatPengiriman || null,
-      foto_path: fotoPath,
+      foto_paths: photos.length ? photos : null,
+      foto_path: photos[0] ?? null,
     };
 
     const onSuccess = () => {
@@ -265,55 +265,48 @@ export default function SellScreen() {
         <Text style={styles.optionalNote}>Semua kolom bersifat opsional</Text>
 
         <Field label="Foto Produk" testID="field-foto">
-          {fotoPreview ? (
-            <View style={styles.photoWrap} testID="foto-preview">
-              <Image source={{ uri: fotoPreview }} style={styles.photo} contentFit="cover" />
-              {uploading && (
-                <View style={styles.photoOverlay}>
-                  <ActivityIndicator color={colors.onBrandPrimary} />
-                  <Text style={styles.photoOverlayText}>Mengunggah...</Text>
-                </View>
-              )}
-              {!uploading && (
+          <View style={styles.photoGallery}>
+            {photos.map((uri, idx) => (
+              <View key={`${uri}-${idx}`} style={styles.thumbWrap} testID={`foto-thumb-${idx}`}>
+                <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
+                <Pressable
+                  testID={`foto-remove-${idx}`}
+                  onPress={() => removePhoto(idx)}
+                  hitSlop={6}
+                  style={styles.thumbRemove}
+                >
+                  <X size={13} color={colors.onSurface} weight="bold" />
+                </Pressable>
+              </View>
+            ))}
+            <Pressable
+              testID="foto-gallery"
+              onPress={pickFromGallery}
+              disabled={uploading}
+              style={({ pressed }) => [styles.addTile, pressed && styles.iconBtnPressed]}
+            >
+              {uploading ? (
+                <ActivityIndicator color={colors.brandPrimary} />
+              ) : (
                 <>
-                  <Pressable
-                    testID="foto-remove"
-                    onPress={removePhoto}
-                    hitSlop={8}
-                    style={styles.photoRemove}
-                  >
-                    <X size={16} color={colors.onSurface} weight="bold" />
-                  </Pressable>
-                  <Pressable
-                    testID="foto-change"
-                    onPress={pickFromGallery}
-                    style={styles.photoChange}
-                  >
-                    <Text style={styles.photoChangeText}>Ganti</Text>
-                  </Pressable>
+                  <ImageSquare size={22} color={colors.brandPrimary} weight="bold" />
+                  <Text style={styles.addTileText}>Galeri</Text>
                 </>
               )}
-            </View>
-          ) : (
-            <View style={styles.photoBtnRow}>
-              <Pressable
-                testID="foto-gallery"
-                onPress={pickFromGallery}
-                style={({ pressed }) => [styles.photoBtn, pressed && styles.iconBtnPressed]}
-              >
-                <ImageSquare size={22} color={colors.brandPrimary} weight="bold" />
-                <Text style={styles.photoBtnText}>Galeri</Text>
-              </Pressable>
-              <Pressable
-                testID="foto-camera"
-                onPress={takePhoto}
-                style={({ pressed }) => [styles.photoBtn, pressed && styles.iconBtnPressed]}
-              >
-                <Camera size={22} color={colors.brandPrimary} weight="bold" />
-                <Text style={styles.photoBtnText}>Kamera</Text>
-              </Pressable>
-            </View>
-          )}
+            </Pressable>
+            <Pressable
+              testID="foto-camera"
+              onPress={takePhoto}
+              disabled={uploading}
+              style={({ pressed }) => [styles.addTile, pressed && styles.iconBtnPressed]}
+            >
+              <Camera size={22} color={colors.brandPrimary} weight="bold" />
+              <Text style={styles.addTileText}>Kamera</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.photoHint}>
+            Bisa tambah beberapa foto. Foto disimpan di perangkat.
+          </Text>
         </Field>
 
         <Field label="Tanggal Penjualan" testID="field-tanggal">
@@ -548,74 +541,50 @@ const useStyles = makeStyles((colors) => ({
     color: colors.muted,
     marginBottom: 2,
   },
-  photoBtnRow: { flexDirection: "row", gap: 12 },
-  photoBtn: {
-    flex: 1,
-    flexDirection: "row",
-    gap: 8,
+  photoGallery: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  thumbWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  thumb: { width: "100%", height: "100%" },
+  thumbRemove: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.65)",
+  },
+  addTile: {
+    width: 88,
+    height: 88,
+    borderRadius: 12,
+    gap: 4,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: colors.border,
     borderStyle: "dashed",
-    borderRadius: 12,
-    paddingVertical: 18,
   },
-  photoBtnText: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.onSurface,
-  },
-  photoWrap: {
-    height: 200,
-    borderRadius: 14,
-    overflow: "hidden",
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  photo: { width: "100%", height: "100%" },
-  photoOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "rgba(0,0,0,0.55)",
-  },
-  photoOverlayText: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.onBrandPrimary,
-  },
-  photoRemove: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.6)",
-  },
-  photoChange: {
-    position: "absolute",
-    bottom: 10,
-    right: 10,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    backgroundColor: colors.brandPrimary,
-  },
-  photoChangeText: {
+  addTileText: {
     fontFamily: fonts.semibold,
     fontSize: 12,
-    color: colors.onBrandPrimary,
+    color: colors.onSurface,
+  },
+  photoHint: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: 8,
   },
   field: { gap: 6 },
   label: {

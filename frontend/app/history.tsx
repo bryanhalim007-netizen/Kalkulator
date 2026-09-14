@@ -25,7 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DatePickerModal } from "@/src/components/date-picker-modal";
 import { useToast } from "@/src/components/toast";
-import { Sale, fileUrl, useDeleteSale, useSales } from "@/src/lib/api";
+import { Sale, salePhotos, useDeleteSale, useSales } from "@/src/lib/api";
 import { formatJam, formatRupiah, formatTanggal } from "@/src/lib/format";
 import { shareSaleToWhatsApp } from "@/src/lib/share";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
@@ -121,12 +121,19 @@ export default function HistoryScreen() {
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
       <View style={styles.cardTop}>
-        {item.foto_path ? (
-          <Image
-            source={{ uri: fileUrl(item.foto_path)! }}
-            style={styles.cardThumb}
-            contentFit="cover"
-          />
+        {salePhotos(item).length > 0 ? (
+          <View style={styles.cardThumbWrap}>
+            <Image
+              source={{ uri: salePhotos(item)[0] }}
+              style={styles.cardThumb}
+              contentFit="cover"
+            />
+            {salePhotos(item).length > 1 && (
+              <View style={styles.thumbBadge}>
+                <Text style={styles.thumbBadgeText}>+{salePhotos(item).length - 1}</Text>
+              </View>
+            )}
+          </View>
         ) : null}
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle} numberOfLines={1}>
@@ -503,11 +510,31 @@ const useStyles = makeStyles((colors) => ({
     color: colors.onSurfaceSecondary,
   },
   chipTextActive: { color: colors.onBrandPrimary },
+  cardThumbWrap: { width: 52, height: 52 },
   cardThumb: {
     width: 52,
     height: 52,
     borderRadius: 10,
     backgroundColor: colors.surfaceTertiary,
+  },
+  thumbBadge: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.brandPrimary,
+    borderWidth: 2,
+    borderColor: colors.surfaceSecondary,
+  },
+  thumbBadgeText: {
+    fontFamily: fonts.semibold,
+    fontSize: 10,
+    color: colors.onBrandPrimary,
   },
   summary: {
     flexDirection: "row",

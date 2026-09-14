@@ -1,0 +1,38 @@
+{
+  "summary": "SKBike OFFLINE mode end-to-end frontend verification on Expo web preview (375x667). Zero backend calls, all sales persisted via localStorage fallback (key 'skbike_sales'). Full flow PASSED: PIN 8193 unlock -> letter keypad YVK correctly derives HARGA MODAL Rp 1.350.000 (letter mapping P0 Y1 F2 V3 H4 K5 T6 B7 R8 Q9 verified via 3 codes) -> CHECK HARGA JUAL -> Barang Terjual -> sell form (Foto tiles 'Galeri'+'Kamera' render without crash) -> fill Nama Barang + Nama Pembeli -> SIMPAN PENJUALAN -> lands on History with new card at top, TRANSAKSI=1, TOTAL OMZET=Rp 1.350.000. Multiple sales test: created 3 sales (YVK=1.350.000, PYF=120.000, HTB=4.670.000) -> summary correctly shows TRANSAKSI=3, TOTAL OMZET=Rp 6.140.000 (1.350k+120k+4.670k). History search: typing 'TEST_Buyer_B' filters to 1 card, typing 'TEST_Sepeda_A' also filters to 1 card, X clear restores all 3. Date filters: 'Hari ini'/'Semua tanggal'/'Minggu ini'/'Bulan ini' chips all clickable and filter the list; 'Pilih tanggal' opens DatePickerModal (verified 'Batal' present in DOM). Detail page: tap card -> detail-hero shows 'TEST_Sepeda_C | STATUS BELUM DIATUR | HARGA JUAL | Rp 4.670.000'. Edit flow: pencil (detail-edit-button) -> title 'Edit Penjualan' with input-pembeli prefilled 'TEST_Buyer_C' and margin '0' -> changed pembeli to 'TEST_Buyer_C_Edited' + margin '50000' -> SIMPAN PERUBAHAN -> returned to detail, both '_Edited' and 'Rp 50.000' present. Delete from detail: confirm modal 'Hapus Penjualan?' -> confirm-delete -> card count 3->2. Delete from history trash: single-tap -> card count 2->1 (data persists in localStorage after each op). CRITICAL OFFLINE CHECK: 0 /api/ requests captured during the entire session; localStorage['skbike_sales'] populated (435 bytes after final state). Only non-blocking react-native-web deprecation warnings: 'shadow*' style props, 'props.pointerEvents', and 'useNativeDriver not supported' (web-only). No red screen, no page errors, no failed network requests.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "react-native-web console warnings", "issue": "Non-blocking web deprecations: '\"shadow*\" style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents' and 'Animated: useNativeDriver is not supported' — all originate from libraries / web-only fallbacks, no functional impact."}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_7.json"],
+  "action_items": [
+    "Minor cleanup (optional): /app/frontend/.env still contains EXPO_PUBLIC_BACKEND_URL though the app is now fully offline. Consider removing it (or leaving as-is since api.ts no longer references any BASE_URL — verified 0 api calls at runtime)."
+  ],
+  "critical_code_review_comments": [
+    "db.ts:22 isWeb branch correctly gates SQLite vs localStorage. Web fallback key 'skbike_sales' persists across reloads — verified.",
+    "db.ts:170 listSales web branch sorts by created_at DESC via localeCompare on ISO strings — correct.",
+    "db.ts:193 createSale web branch prepends to array (new sale at index 0) — matches DESC order shown in History.",
+    "db.ts:210 updateSale web branch preserves created_at from existing record — verified sale stays in same slot after edit.",
+    "db.ts:240 deleteSale filters out by id and writes back — verified card count drops immediately.",
+    "db.ts:252 savePhotoLocal returns original uri on web (no persistent FS), copies to documentDirectory/photos/ on native — safe on web preview.",
+    "api.ts:28 fileUrl now returns path as-is (offline URIs) — no backend URL construction, consistent with offline mode.",
+    "api.ts:34 salePhotos handles both new foto_paths[] and legacy foto_path (single) — backward compatible for older localStorage rows.",
+    "sell.tsx:113 useEffect prefill guard (prefilled state) prevents overwrites on re-renders — correct.",
+    "sell.tsx:208 kode_huruf uses editSale.kode_huruf on edit vs params.kode on create — preserves original code on edit.",
+    "history.tsx:83 useMemo filter combines status/date/text in single O(n) pass — clean.",
+    "sale/[id].tsx:130 conditional detail-foto (single Image vs horizontal ScrollView) matches spec; empty state handled.",
+    "sale/[id].tsx:209 delete confirmation Modal blocks accidental taps — good UX."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only per request; app is offline)", "frontend": "100% (12/12 flows: PIN, letter code, margin, sell form + Foto tiles, save→history, multi-sale, search by buyer, search by barang, search clear, date filters, custom date picker, detail, edit prefill+save, detail delete, history-trash delete, offline verification)"},
+  "seed_data_creation": "Test seeded 3 sales in browser localStorage; ended run with 1 remaining ('TEST_Sepeda_C_Edited' path was deleted from detail — final surviving record is 'TEST_Sepeda_A'). Left in localStorage for main-agent inspection; user can clear by running localStorage.removeItem('skbike_sales').",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "App is fully OFFLINE — DO NOT test any /api/ endpoint. Data layer: web uses localStorage key 'skbike_sales', native uses expo-sqlite. Letter code mapping: P0 Y1 F2 V3 H4 K5 T6 B7 R8 Q9. Keypad testIDs: key-<letter> (Y,V,K,...), pin-key-<digit>. Key screen testIDs: check-harga-jual-button, back-to-calc-button (visible only in margin mode), barang-terjual-button, save-sale-button, history-back-button, detail-hero, detail-edit-button, detail-delete-button, confirm-delete, delete-sale-<id>, search-input, search-clear, date-filter-{all|today|week|month|custom}, foto-gallery, foto-camera. IMPORTANT: after tapping history-back-button you land on Home in MARGIN mode (not calc mode), so to enter a new code you must first click back-to-calc-button then clear-code-button before typing new letters.",
+  "rca_of_issue": "N/A — feature verification passed. All 9 acceptance criteria in review_request are met end-to-end on Expo web with localStorage fallback."
+}

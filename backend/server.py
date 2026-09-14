@@ -103,6 +103,7 @@ class Sale(BaseModel):
     metode_pengambilan: Optional[str] = None
     alamat_pengiriman: Optional[str] = None
     foto_path: Optional[str] = None
+    foto_paths: Optional[List[str]] = None
     created_at: str = Field(default_factory=now_iso)
     deleted_at: Optional[str] = None
 
@@ -122,6 +123,7 @@ class SaleCreate(BaseModel):
     metode_pengambilan: Optional[str] = None
     alamat_pengiriman: Optional[str] = None
     foto_path: Optional[str] = None
+    foto_paths: Optional[List[str]] = None
 
 
 # ---------------------------------------------------------------------------

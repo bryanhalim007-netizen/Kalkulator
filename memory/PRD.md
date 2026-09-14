@@ -40,6 +40,10 @@ ke pembeli dan form penjualan yang tersimpan ke riwayat. Login PIN. Tema Merah &
 - [x] Full E2E testing passed 100% (backend 9/9, frontend 13 steps) (2026-06)
 - [x] Nota WhatsApp dirapikan tanpa emoji (garis, bold, blok harga rata kanan) (2026-06)
 - [x] Toggle Sembunyikan/Tampilkan Keypad huruf di Home (2026-06)
+- [x] Edit Penjualan dari halaman detail + tampilan PIN baru (2026-06)
+- [x] MODE OFFLINE PENUH: data di SQLite lokal (fallback localStorage di web), tanpa backend (2026-06)
+- [x] Multi-foto produk disimpan lokal di perangkat; galeri di detail & thumbnail +N di riwayat (2026-06)
+- [x] Pencarian (pembeli/barang/kode) + filter tanggal (preset & pilih tanggal) di Riwayat (2026-06)
 
 ## Backlog (prioritized)
 - P1: Ringkasan penjualan (total omzet & margin per hari/bulan).

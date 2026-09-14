@@ -124,3 +124,12 @@
   - app.json: camera + photo permissions, expo-image-picker plugin.
 - test_plan: (1) backend upload/download; (2) create sale WITH photo -> appears on history thumbnail + detail; (3) search filters list; (4) date presets filter list.
 - Note: image upload/camera must be tested on web preview AND native build (web uses blob body). PIN 8193.
+
+## Iteration 7 (2026-06) — FULL OFFLINE MODE + multi-photo
+- App is now 100% offline. NO backend/API calls. Data persists locally.
+  - New: /app/frontend/src/lib/db.ts — expo-sqlite on native, localStorage fallback on web preview. CRUD: listSales/getSale/createSale/updateSale/deleteSale. savePhotoLocal copies picked images into documentDirectory/photos (native).
+  - api.ts hooks (useSales/useSale/useCreateSale/useUpdateSale/useDeleteSale) now call db.* (React Query kept). fileUrl returns local uri as-is. saveImage = savePhotoLocal. salePhotos() returns foto_paths or [foto_path].
+- Multi-photo: sell.tsx now supports MULTIPLE photos (gallery multi-select + camera), thumbnails w/ per-photo remove; foto_paths saved. sale/[id].tsx shows single image or horizontal strip. history.tsx card thumbnail = first photo + "+N" badge.
+- WA nota: photo link REMOVED (offline files can't be linked).
+- Backend server.py + object storage endpoints are now UNUSED by the app (left in place, harmless).
+- IMPORTANT for testing: this is FRONTEND-ONLY now. Do NOT test backend APIs. Test on Expo web (uses localStorage fallback). Verify: PIN 8193 -> calc YVK -> Barang Terjual -> save -> History shows card; search/date filters; edit via detail pencil; delete. Photo picker on web opens file chooser (multi). PIN 8193.

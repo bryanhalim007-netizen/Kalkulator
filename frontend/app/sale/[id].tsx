@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState } from "react";
 
 import { useToast } from "@/src/components/toast";
-import { Sale, fileUrl, useDeleteSale, useSale } from "@/src/lib/api";
+import { Sale, salePhotos, useDeleteSale, useSale } from "@/src/lib/api";
 import { formatJam, formatRupiah, formatTanggal } from "@/src/lib/format";
 import { shareSaleToWhatsApp } from "@/src/lib/share";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
@@ -127,13 +127,31 @@ export default function SaleDetailScreen() {
             </View>
 
             {/* Foto Produk */}
-            {sale.foto_path ? (
-              <Image
-                testID="detail-foto"
-                source={{ uri: fileUrl(sale.foto_path)! }}
-                style={styles.detailPhoto}
-                contentFit="cover"
-              />
+            {salePhotos(sale).length > 0 ? (
+              salePhotos(sale).length === 1 ? (
+                <Image
+                  testID="detail-foto"
+                  source={{ uri: salePhotos(sale)[0] }}
+                  style={styles.detailPhoto}
+                  contentFit="cover"
+                />
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.photoStripContent}
+                  testID="detail-foto"
+                >
+                  {salePhotos(sale).map((uri, i) => (
+                    <Image
+                      key={`${uri}-${i}`}
+                      source={{ uri }}
+                      style={styles.photoStripItem}
+                      contentFit="cover"
+                    />
+                  ))}
+                </ScrollView>
+              )
             ) : null}
 
             {/* Waktu */}
@@ -334,6 +352,15 @@ const useStyles = makeStyles((colors) => ({
     width: "100%",
     height: 220,
     borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  photoStripContent: { gap: 10 },
+  photoStripItem: {
+    width: 200,
+    height: 200,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surfaceSecondary,
