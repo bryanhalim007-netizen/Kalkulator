@@ -2,12 +2,13 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Bicycle, TrashSimple, WhatsappLogo } from "phosphor-react-native";
+import { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Linking,
   Pressable,
   RefreshControl,
+  ScrollView,
   Text,
   View,
 } from "react-native";
@@ -16,35 +17,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useToast } from "@/src/components/toast";
 import { Sale, useDeleteSale, useSales } from "@/src/lib/api";
 import { formatJam, formatRupiah, formatTanggal } from "@/src/lib/format";
+import { shareSaleToWhatsApp } from "@/src/lib/share";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
 
 const EMPTY_IMAGE =
   "https://images.unsplash.com/photo-1595886068978-59624dde48d1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHwxfHxlbXB0eSUyMGNsaXBib2FyZCUyMGRlc2t8ZW58MHx8fGJsYWNrfDE3ODkzODgyOTB8MA&ixlib=rb-4.1.0&q=85";
 
-// WhatsApp tujuan (08125559681 -> format internasional).
-const WA_NUMBER = "628125559681";
-
-function buildSaleMessage(item: Sale): string {
-  const line = (label: string, value?: string | null) =>
-    `${label}: ${value && String(value).length ? value : "-"}`;
-  return [
-    "*Rincian Penjualan - SKBike*",
-    "",
-    line("Tanggal Penjualan", item.tanggal_penjualan || formatTanggal(item.created_at)),
-    line("Jam Transaksi", formatJam(item.created_at)),
-    line("Nama Pembeli", item.nama_pembeli),
-    line("Nama Barang", item.nama_barang),
-    line("Kode Barang", item.kode_barang),
-    line("Ukuran & Warna", item.ukuran_warna),
-    line("Harga Modal", formatRupiah(item.harga_modal)),
-    line("Margin", formatRupiah(item.margin)),
-    line("Harga Jual", formatRupiah(item.harga_jual)),
-    line("Metode Pembayaran", item.metode_pembayaran),
-    line("Sudah Diambil", item.sudah_diambil),
-    line("Metode Pengambilan", item.metode_pengambilan),
-    line("Alamat Pengiriman", item.alamat_pengiriman),
-  ].join("\n");
-}
+const FILTERS: { key: string; label: string }[] = [
+  { key: "all", label: "Semua" },
+  { key: "belum", label: "Belum diambil" },
+  { key: "sudah", label: "Sudah diambil" },
+];
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
@@ -54,6 +37,17 @@ export default function HistoryScreen() {
   const toast = useToast();
   const { data, isLoading, isError, refetch, isRefetching } = useSales();
   const deleteSale = useDeleteSale();
+  const [filter, setFilter] = useState("all");
+
+  const all = data ?? [];
+  const filtered = all.filter((s) =>
+    filter === "all"
+      ? true
+      : filter === "sudah"
+        ? s.sudah_diambil === "Sudah"
+        : s.sudah_diambil !== "Sudah",
+  );
+  const totalOmzet = filtered.reduce((sum, s) => sum + (s.harga_jual || 0), 0);
 
   const onDelete = (sale: Sale) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -65,19 +59,16 @@ export default function HistoryScreen() {
 
   const onShare = async (sale: Sale) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const text = encodeURIComponent(buildSaleMessage(sale));
-    // Official WhatsApp click-to-chat link: works on iOS, Android & web,
-    // and opens the installed app when available.
-    const url = `https://wa.me/${WA_NUMBER}?text=${text}`;
-    try {
-      await Linking.openURL(url);
-    } catch {
-      toast.show("Tidak dapat membuka WhatsApp", "error");
-    }
+    const ok = await shareSaleToWhatsApp(sale);
+    if (!ok) toast.show("Tidak dapat membuka WhatsApp", "error");
   };
 
   const renderItem = ({ item }: { item: Sale }) => (
-    <View style={styles.card} testID={`sale-card-${item.id}`}>
+    <Pressable
+      testID={`sale-card-${item.id}`}
+      onPress={() => router.push(`/sale/${item.id}`)}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    >
       <View style={styles.cardTop}>
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle} numberOfLines={1}>
@@ -161,7 +152,7 @@ export default function HistoryScreen() {
           <Text style={styles.priceJual}>{formatRupiah(item.harga_jual)}</Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 
   return (
@@ -177,6 +168,30 @@ export default function HistoryScreen() {
         </Pressable>
         <Text style={styles.headerTitle}>Riwayat Penjualan</Text>
         <View style={{ width: 42 }} />
+      </View>
+
+      <View style={styles.filterWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {FILTERS.map((f) => {
+            const active = filter === f.key;
+            return (
+              <Pressable
+                key={f.key}
+                testID={`filter-${f.key}`}
+                onPress={() => setFilter(f.key)}
+                style={[styles.chip, active && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {f.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {isLoading ? (
@@ -197,13 +212,34 @@ export default function HistoryScreen() {
       ) : (
         <FlatList
           testID="sales-list"
-          data={data ?? []}
+          data={filtered}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          ListHeaderComponent={
+            filtered.length > 0 ? (
+              <View style={styles.summary} testID="summary-bar">
+                <View>
+                  <Text style={styles.summaryLabel}>TRANSAKSI</Text>
+                  <Text style={styles.summaryValue}>{filtered.length}</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.summaryLabel}>TOTAL OMZET</Text>
+                  <Text
+                    style={styles.summaryOmzet}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {formatRupiah(totalOmzet)}
+                  </Text>
+                </View>
+              </View>
+            ) : null
+          }
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: insets.bottom + 24 },
-            (data ?? []).length === 0 && styles.listEmpty,
+            filtered.length === 0 && styles.listEmpty,
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -221,9 +257,13 @@ export default function HistoryScreen() {
                   <Bicycle size={28} color={colors.brandPrimary} weight="bold" />
                 </View>
               </View>
-              <Text style={styles.emptyTitle}>Belum ada penjualan</Text>
+              <Text style={styles.emptyTitle}>
+                {all.length === 0 ? "Belum ada penjualan" : "Tidak ada hasil"}
+              </Text>
               <Text style={styles.emptyText}>
-                Penjualan yang kamu simpan akan muncul di sini.
+                {all.length === 0
+                  ? "Penjualan yang kamu simpan akan muncul di sini."
+                  : "Tidak ada penjualan pada filter ini."}
               </Text>
             </View>
           }
@@ -262,13 +302,72 @@ const useStyles = makeStyles((colors) => ({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16 },
   listContent: { paddingHorizontal: 20, paddingTop: 8, gap: 12 },
   listEmpty: { flexGrow: 1, justifyContent: "center" },
+  filterWrap: { height: 56, justifyContent: "center" },
+  filterRow: { paddingHorizontal: 20, gap: 10, alignItems: "center" },
+  chip: {
+    height: 36,
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipActive: {
+    backgroundColor: colors.brandPrimary,
+    borderColor: colors.brandPrimary,
+  },
+  chipText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.onSurfaceSecondary,
+  },
+  chipTextActive: { color: colors.onBrandPrimary },
+  summary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontFamily: fonts.semibold,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: colors.muted,
+  },
+  summaryValue: {
+    fontFamily: fonts.display,
+    fontSize: 30,
+    color: colors.onSurface,
+    marginTop: 2,
+  },
+  summaryDivider: { width: 1, height: 36, backgroundColor: colors.divider },
+  summaryOmzet: {
+    fontFamily: fonts.display,
+    fontSize: 26,
+    color: colors.brandPrimary,
+    marginTop: 2,
+  },
 
   card: {
     backgroundColor: colors.surfaceSecondary,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.brandPrimary,
     padding: 16,
+  },
+  cardPressed: {
+    backgroundColor: colors.surfaceTertiary,
+    transform: [{ scale: 0.99 }],
   },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   cardActions: { flexDirection: "row", gap: 8 },
@@ -281,8 +380,9 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.surfaceTertiary,
   },
   cardTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: 16,
+    fontFamily: fonts.displaySemi,
+    fontSize: 18,
+    letterSpacing: 0.3,
     color: colors.onSurface,
   },
   cardMeta: {

@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend-only verification of SKBike new features (detail screen, status filter chips, sportier UI) on Expo web preview at 375x667. All acceptance criteria pass. Seeded 2 additional 'Belum' sales via API against the 1 existing 'Sudah' sale. Filter chips: Semua -> 3 cards / summary-bar 'TRANSAKSI 3 | TOTAL OMZET Rp 4.700.000'; Belum diambil -> 2 cards / 'TRANSAKSI 2 | TOTAL OMZET Rp 3.350.000' (correctly includes items with sudah_diambil != 'Sudah'); Sudah diambil -> 1 card / 'TRANSAKSI 1 | TOTAL OMZET Rp 1.350.000'. Selected chip renders red (rgb(230,46,46) brandPrimary) with white text. Tapping a sale-card-<id> navigates to /sale/<id>; detail-hero shows title + status badge ('BELUM DIAMBIL' muted, 'SUDAH DIAMBIL' green) + big HARGA JUAL; all four sections (Waktu, Barang & Pembeli, Pembayaran & Pengambilan, Rincian Harga with Modal/Margin/Harga Jual) render with proper Row labels and '-' fallback for empty fields. detail-share-cta and detail-share-button both open the correct wa.me/628125559681?text=... link containing the full formatted message (Tanggal, Jam, Nama Pembeli/Barang, Kode, Ukuran, Modal, Margin, Harga Jual, Metode Pembayaran, Sudah Diambil, Metode Pengambilan, Alamat) with no runtime error. detail-delete-button soft-deletes the sale, shows the 'Penjualan dihapus' success toast, router.back() lands on /history, and the deleted sale no longer appears in sales-list. history card share-sale-<id> still opens the same wa.me link (regression OK). Empty filter result correctly shows testID='empty-state' with title 'Tidak ada hasil' and message 'Tidak ada penjualan pada filter ini.', and summary-bar is hidden when list is empty. No red screen, no pageerror. Regression on the create flow was fully validated in iteration_3 and none of the create-flow files (sell.tsx / home.tsx / segmented / date-picker-modal) changed in this iteration, so it is considered stable.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_4.json",
+    "/app/test_reports/iteration_3.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "history.tsx filter logic is correct: 'belum' = sudah_diambil !== 'Sudah' (covers null AND 'Belum'), matching spec.",
+    "history.tsx summary-bar totalOmzet is computed from the filtered list (not the full list), which matches acceptance criteria.",
+    "sale/[id].tsx cleanly reuses useDeleteSale + shareSaleToWhatsApp (DRY); after delete it calls router.back() and toast — good UX.",
+    "sale/[id].tsx Row helper renders '-' when value is empty, so nullable Sale fields never crash the layout.",
+    "src/lib/share.ts uses https://wa.me/<intl-num>?text=... which works cross-platform (iOS, Android, Web) and gracefully returns false on failure — no runtime errors.",
+    "src/lib/api.ts useSale(id) query is properly gated with enabled: !!id, avoiding a phantom GET when the route param is undefined.",
+    "Sale card is now a Pressable with cardPressed transform + brand-red left border — sporty look matches the polish requested.",
+    "Nested Pressable share/delete buttons inside the sale-card Pressable correctly stop propagation (child onPress fires without navigating to detail).",
+    "sale/[id].tsx floating ctaBar uses insets.bottom + 12 padding and ScrollView paddingBottom 120, so the CTA never overlaps content — good mobile ergonomics.",
+    "Minor: sale/[id].tsx does not surface a delete-loading spinner (only disables the button); acceptable for MVP given the DELETE call is fast, but could show a small ActivityIndicator for perceived responsiveness.",
+    "Minor: detail-delete-button has a 56px width and full-height flex row (>44pt hit target ✅) but no confirmation prompt — deletion is soft-delete on the backend so recoverable, still consider an Alert.alert('Hapus penjualan ini?') to prevent accidental taps."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only run)", "frontend": "100% (6/6 flows)"},
+  "seed_data_creation": "Created 2 sales via POST /api/sales for filter coverage (Budi Test / Polygon Premier — Belum, and Andi Test / United BMX — Belum). Andi Test sale was deleted through the UI as part of the detail-delete test. The pre-existing 'Sudah' sale (5cbea041...) was deleted via API to validate the empty-state on filter-sudah.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Base URL: EXPO_PUBLIC_BACKEND_URL from /app/frontend/.env (currently https://cost-to-sales-pro.preview.emergentagent.com). App PIN=8193. On web the WhatsApp share opens via window.open — intercept with page.evaluate('window.open = (u) => { window.__lastOpenedUrl = u; }'). Sales list is now empty after this run; if you need cards, POST to /api/sales or use the in-app create flow (Home -> letters Y,V,K -> Check Harga Jual -> Barang Terjual). testIDs added this iteration: filter-all, filter-belum, filter-sudah, summary-bar, sale-card-<id>, detail-hero, detail-back-button, detail-share-button, detail-share-cta, detail-delete-button.",
+  "rca_of_issue": "N/A — feature-verification review, no bugs found."
+}

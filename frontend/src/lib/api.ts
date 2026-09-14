@@ -46,6 +46,14 @@ export function useSales() {
   });
 }
 
+export function useSale(id: string | undefined) {
+  return useQuery({
+    queryKey: ["sale", id],
+    queryFn: () => request<Sale>(`/sales/${id}`),
+    enabled: !!id,
+  });
+}
+
 export function useCreateSale() {
   const qc = useQueryClient();
   return useMutation({
