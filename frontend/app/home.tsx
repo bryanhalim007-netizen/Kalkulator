@@ -1,4 +1,5 @@
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -96,8 +97,12 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.brandTag}>
-          <Text style={styles.brandText}>BIKE</Text>
-          <Text style={styles.brandTextAccent}>POS</Text>
+          <Image
+            source={require("../assets/images/sk-logo.png")}
+            style={styles.brandLogo}
+            contentFit="contain"
+          />
+          <Text style={styles.brandBike}>Bike</Text>
         </View>
         <Pressable
           testID="history-button"
@@ -278,7 +283,14 @@ const useStyles = makeStyles((colors) => ({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-  brandTag: { flexDirection: "row", alignItems: "center" },
+  brandTag: { flexDirection: "row", alignItems: "center", gap: 5 },
+  brandLogo: { height: 30, width: 43 },
+  brandBike: {
+    fontFamily: fonts.display,
+    fontSize: 24,
+    letterSpacing: 0.5,
+    color: colors.onSurface,
+  },
   brandText: {
     fontFamily: fonts.display,
     fontSize: 24,

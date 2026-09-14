@@ -28,7 +28,7 @@ function buildSaleMessage(item: Sale): string {
   const line = (label: string, value?: string | null) =>
     `${label}: ${value && String(value).length ? value : "-"}`;
   return [
-    "*Rincian Penjualan - BikePOS*",
+    "*Rincian Penjualan - SKBike*",
     "",
     line("Tanggal Penjualan", item.tanggal_penjualan || formatTanggal(item.created_at)),
     line("Nama Pembeli", item.nama_pembeli),
@@ -61,17 +61,13 @@ export default function HistoryScreen() {
   const onShare = async (sale: Sale) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const text = encodeURIComponent(buildSaleMessage(sale));
-    const appUrl = `whatsapp://send?phone=${WA_NUMBER}&text=${text}`;
-    const webUrl = `https://wa.me/${WA_NUMBER}?text=${text}`;
+    // Official WhatsApp click-to-chat link: works on iOS, Android & web,
+    // and opens the installed app when available.
+    const url = `https://wa.me/${WA_NUMBER}?text=${text}`;
     try {
-      const canOpen = await Linking.canOpenURL(appUrl);
-      await Linking.openURL(canOpen ? appUrl : webUrl);
+      await Linking.openURL(url);
     } catch {
-      try {
-        await Linking.openURL(webUrl);
-      } catch {
-        toast.show("WhatsApp tidak tersedia", "error");
-      }
+      toast.show("Tidak dapat membuka WhatsApp", "error");
     }
   };
 

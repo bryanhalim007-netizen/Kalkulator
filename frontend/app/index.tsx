@@ -82,8 +82,12 @@ export default function PinLockScreen() {
       >
         <View style={styles.brandRow}>
           <View style={styles.brandTag} testID="pin-brand">
-            <Text style={styles.brandTagText}>BIKE</Text>
-            <Text style={styles.brandTagTextAccent}>POS</Text>
+            <Image
+              source={require("../assets/images/sk-logo.png")}
+              style={styles.brandLogo}
+              contentFit="contain"
+            />
+            <Text style={styles.brandBike}>Bike</Text>
           </View>
           <Text style={styles.tagline}>KASIR SEPEDA</Text>
         </View>
@@ -149,7 +153,14 @@ const useStyles = makeStyles((colors) => ({
   scrim: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   content: { flex: 1, paddingHorizontal: 24, justifyContent: "space-between" },
   brandRow: { alignItems: "flex-start" },
-  brandTag: { flexDirection: "row", alignItems: "center" },
+  brandTag: { flexDirection: "row", alignItems: "center", gap: 6 },
+  brandLogo: { height: 46, width: 66 },
+  brandBike: {
+    fontFamily: fonts.display,
+    fontSize: 34,
+    letterSpacing: 1,
+    color: colors.onSurface,
+  },
   brandTagText: {
     fontFamily: fonts.display,
     fontSize: 34,
