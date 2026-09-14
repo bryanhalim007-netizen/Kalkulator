@@ -1,0 +1,163 @@
+{
+  "app_name": "BikePOS",
+  "personality": "7 Dark-First Utility DARK",
+  "personality_one_liner": "A high-contrast, tactical command center prioritizing operational speed, stark hierarchy, and a bold red-and-black aesthetic.",
+  "color": {
+    "surface": "#0D0D0D",
+    "onSurface": "#F5F5F5",
+    "surfaceSecondary": "#1A1A1A",
+    "onSurfaceSecondary": "#E5E5E5",
+    "surfaceTertiary": "#262626",
+    "onSurfaceTertiary": "#D4D4D4",
+    "surfaceInverse": "#E5E5E5",
+    "onSurfaceInverse": "#0D0D0D",
+    "brand": "#D92121",
+    "brandPrimary": "#E62E2E",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#B31B1B",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#3D1010",
+    "onBrandTertiary": "#FFB3B3",
+    "success": "#198754",
+    "onSuccess": "#FFFFFF",
+    "warning": "#FFC107",
+    "onWarning": "#0D0D0D",
+    "error": "#DC3545",
+    "onError": "#FFFFFF",
+    "info": "#0DCAF0",
+    "onInfo": "#0D0D0D",
+    "border": "#333333",
+    "borderStrong": "#4D4D4D",
+    "divider": "#262626",
+    "muted": "#808080",
+    "onBrand": "#FFFFFF"
+  },
+  "typography": {
+    "displayFontFamily": "Rajdhani",
+    "textFontFamily": "IBM Plex Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Use dense spacing for tactical data display, keeping controls tightly grouped but with clear hit areas.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "stack_only",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": false,
+    "do's": [],
+    "dont's": [
+      "No glassmorphism for this app. Rely on stark borders and tonal separation (surface to surfaceSecondary) for hierarchy."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "PIN Lock Screen",
+      "purpose": "A secure entry gate specifically styled for the bike shop owner.",
+      "states": {
+        "loading": "Spinner in center of keypad",
+        "empty": "N/A",
+        "error": "Shake animation on dots, red error text below PIN indicator"
+      },
+      "layout": "Full-screen background image of bicycle gears (with heavy gradient scrim top-to-bottom). Centered PIN dots. Bottom-anchored 0-9 numeric pad using strict grid layout. Clear and backspace actions."
+    },
+    {
+      "name": "Home (Coded Calculator)",
+      "purpose": "Primary POS command center to decode cost prices via letters and calculate the selling price.",
+      "states": {
+        "loading": "N/A",
+        "empty": "Prices show 'Rp 0'.",
+        "error": "Invalid code sequence error toast."
+      },
+      "layout": "Top section: High-contrast digital readout. Shows 'Harga Modal' (derived from letters) and 'Margin' (slider). Displays large 'Harga Jual'. Middle: The margin input bar. Bottom section: A custom alphanumeric tactical keypad using flexWrap grid. The keys are the letters P, Y, F, V, H, K, T, B, R, Q, Z. Bottom sticky CTAs for 'View Harga Ke Pembeli' and 'Barang Terjual'."
+    },
+    {
+      "name": "View Harga Ke Pembeli",
+      "purpose": "A hyper-minimal, buyer-facing screen showing only the final price.",
+      "states": {
+        "loading": "N/A",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "Completely blank surface. No headers, no navigation bars. A massive, vertically and horizontally centered price in brandPrimary (size ~80pt, outside standard scale). Tap anywhere to dismiss and return."
+    },
+    {
+      "name": "Sales Form (Barang Terjual)",
+      "purpose": "Data entry form to log the completed sale details.",
+      "states": {
+        "loading": "Submit button spinner",
+        "empty": "N/A",
+        "error": "Form validation error inline."
+      },
+      "layout": "Single-column scrollable form. Labels above inputs. Fields for Tanggal, Nama Pembeli, Nama Barang, Kode, Ukuran & Warna, Harga Modal, Harga Jual, Margin. Sticky 'Simpan' CTA at the bottom inside KeyboardAvoidingView."
+    },
+    {
+      "name": "Riwayat Penjualan (History)",
+      "purpose": "A chronological list of past sales.",
+      "states": {
+        "loading": "Skeleton list",
+        "empty": "Empty state illustration of a desk/receipt with 'Belum ada penjualan' text.",
+        "error": "Retry button."
+      },
+      "layout": "FlatList of cards. Each card (surfaceSecondary) shows item name, date, and final price in bold. Tonal separation using 1pt border. Empty state vertically centered."
+    }
+  ],
+  "images": {
+    "lock_screen_bg": {
+      "url": "https://images.unsplash.com/photo-1646442424549-f6360ab0a82c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwyfHxiaWN5Y2xlJTIwZ2VhciUyMG1hY3JvfGVufDB8fHxibGFja3wxNzg5Mzg4MjkwfDA&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1646442424549-f6360ab0a82c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwyfHxiaWN5Y2xlJTIwZ2VhciUyMG1hY3JvfGVufDB8fHxibGFja3wxNzg5Mzg4MjkwfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Macro photography of bicycle gears"
+    },
+    "history_empty_state": {
+      "url": "https://images.unsplash.com/photo-1595886068978-59624dde48d1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHwxfHxlbXB0eSUyMGNsaXBib2FyZCUyMGRlc2t8ZW58MHx8fGJsYWNrfDE3ODkzODgyOTB8MA&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1595886068978-59624dde48d1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHwxfHxlbXB0eSUyMGNsaXBib2FyZCUyMGRlc2t8ZW58MHx8fGJsYWNrfDE3ODkzODgyOTB8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Empty clipboard on a desk"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Follow the '7 Dark-First Utility DARK' personality rigidly. Red (brandPrimary) and Black (surface) are the only dominant colors. Absolutely NO blue, purple, or indigo anywhere in the app.",
+    "Implement the coded calculator keypad on the Home screen using the provided letters (P Y F V H K T B R Q Z). Ensure buttons have a minimum touch target of 44x44pt and feel tactile (color flip on press, no heavy shadows).",
+    "For the 'View Harga Ke Pembeli' screen, use an inline massive font size (e.g., 80pt) that exceeds the standard typography scale. Hide the navigation header and all other UI elements so the buyer only sees the final price.",
+    "The lock screen background MUST use the provided bicycle gear image with a vertical gradient scrim overlay (Layer 0: image, Layer 1: transparent-to-dark gradient, Layer 2: PIN UI). The PIN UI sits in the bottom 40% where the scrim is darkest.",
+    "The margin input on the Home screen should be an interactive bar/slider component that directly updates the 'Harga Jual' readout.",
+    "Ensure 'Simpan' (Save) buttons in forms are sticky at the bottom, above the home indicator, inside a KeyboardAvoidingView.",
+    "Wire subtle haptic feedback to all keypad presses (both PIN and Calculator) to reinforce the tactile, command-center feel."
+  ],
+  "haptics": {
+    "keypad_press": "light",
+    "margin_slider_change": "selection",
+    "form_submit": "success",
+    "error_state": "error"
+  }
+}
