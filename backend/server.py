@@ -97,6 +97,16 @@ async def get_sale(sale_id: str):
     return Sale(**{k: v for k, v in doc.items() if k != "_id"})
 
 
+@api_router.put("/sales/{sale_id}", response_model=Sale)
+async def update_sale(sale_id: str, payload: SaleCreate):
+    doc = await db.sales.find_one({"id": sale_id, "deleted_at": None})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Penjualan tidak ditemukan")
+    await db.sales.update_one({"id": sale_id}, {"$set": payload.dict()})
+    updated = await db.sales.find_one({"id": sale_id})
+    return Sale(**{k: v for k, v in updated.items() if k != "_id"})
+
+
 @api_router.delete("/sales/{sale_id}")
 async def delete_sale(sale_id: str):
     result = await db.sales.update_one(

@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, CalendarBlank } from "phosphor-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import {
   KeyboardAwareScrollView,
@@ -12,9 +12,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DatePickerModal } from "@/src/components/date-picker-modal";
 import { Segmented } from "@/src/components/segmented";
 import { useToast } from "@/src/components/toast";
-import { useCreateSale } from "@/src/lib/api";
+import { useCreateSale, useSale, useUpdateSale } from "@/src/lib/api";
 import { formatNumber, parseNumberInput } from "@/src/lib/format";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
+
+const ID_MONTHS = [
+  "januari",
+  "februari",
+  "maret",
+  "april",
+  "mei",
+  "juni",
+  "juli",
+  "agustus",
+  "september",
+  "oktober",
+  "november",
+  "desember",
+];
 
 function formatDateLabel(d: Date) {
   return d.toLocaleDateString("id-ID", {
@@ -24,6 +39,17 @@ function formatDateLabel(d: Date) {
   });
 }
 
+function parseDateLabel(label?: string | null): Date | null {
+  if (!label) return null;
+  const m = label.trim().toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const monthIdx = ID_MONTHS.indexOf(m[2]);
+  const year = Number(m[3]);
+  if (monthIdx < 0) return null;
+  return new Date(year, monthIdx, day);
+}
+
 export default function SellScreen() {
   const insets = useSafeAreaInsets();
   const styles = useStyles();
@@ -31,13 +57,19 @@ export default function SellScreen() {
   const router = useRouter();
   const toast = useToast();
   const createSale = useCreateSale();
+  const updateSale = useUpdateSale();
 
   const params = useLocalSearchParams<{
     hargaModal?: string;
     hargaJual?: string;
     margin?: string;
     kode?: string;
+    editId?: string;
   }>();
+
+  const editId = params.editId;
+  const isEdit = !!editId;
+  const { data: editSale } = useSale(editId);
 
   const [date, setDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -58,41 +90,67 @@ export default function SellScreen() {
     null,
   );
   const [alamatPengiriman, setAlamatPengiriman] = useState("");
+  const [prefilled, setPrefilled] = useState(false);
+
+  // Prefill semua kolom saat mode edit (sekali, ketika data tiba).
+  useEffect(() => {
+    if (!isEdit || !editSale || prefilled) return;
+    const d = parseDateLabel(editSale.tanggal_penjualan);
+    if (d) setDate(d);
+    setNamaPembeli(editSale.nama_pembeli ?? "");
+    setNamaBarang(editSale.nama_barang ?? "");
+    setKodeBarang(editSale.kode_barang ?? "");
+    setUkuranWarna(editSale.ukuran_warna ?? "");
+    setHargaModal(formatNumber(editSale.harga_modal ?? 0));
+    setHargaJual(formatNumber(editSale.harga_jual ?? 0));
+    setMargin(formatNumber(editSale.margin ?? 0));
+    setMetodePembayaran(editSale.metode_pembayaran ?? null);
+    setSudahDiambil(editSale.sudah_diambil ?? null);
+    setMetodePengambilan(editSale.metode_pengambilan ?? null);
+    setAlamatPengiriman(editSale.alamat_pengiriman ?? "");
+    setPrefilled(true);
+  }, [isEdit, editSale, prefilled]);
 
   const onSave = () => {
-    createSale.mutate(
-      {
-        tanggal_penjualan: formatDateLabel(date),
-        nama_pembeli: namaPembeli || null,
-        nama_barang: namaBarang || null,
-        kode_barang: kodeBarang || null,
-        ukuran_warna: ukuranWarna || null,
-        kode_huruf: params.kode || null,
-        harga_modal: parseNumberInput(hargaModal) || null,
-        harga_jual: parseNumberInput(hargaJual) || null,
-        margin: parseNumberInput(margin) || null,
-        metode_pembayaran: metodePembayaran,
-        sudah_diambil: sudahDiambil,
-        metode_pengambilan: metodePengambilan,
-        alamat_pengiriman: alamatPengiriman || null,
-      },
-      {
-        onSuccess: () => {
-          Haptics.notificationAsync(
-            Haptics.NotificationFeedbackType.Success,
-          ).catch(() => {});
-          toast.show("Penjualan tersimpan", "success");
-          router.replace("/history");
-        },
-        onError: (e: any) => {
-          Haptics.notificationAsync(
-            Haptics.NotificationFeedbackType.Error,
-          ).catch(() => {});
-          toast.show(e?.message || "Gagal menyimpan", "error");
-        },
-      },
-    );
+    const payload = {
+      tanggal_penjualan: formatDateLabel(date),
+      nama_pembeli: namaPembeli || null,
+      nama_barang: namaBarang || null,
+      kode_barang: kodeBarang || null,
+      ukuran_warna: ukuranWarna || null,
+      kode_huruf: isEdit ? editSale?.kode_huruf ?? null : params.kode || null,
+      harga_modal: parseNumberInput(hargaModal) || null,
+      harga_jual: parseNumberInput(hargaJual) || null,
+      margin: parseNumberInput(margin) || null,
+      metode_pembayaran: metodePembayaran,
+      sudah_diambil: sudahDiambil,
+      metode_pengambilan: metodePengambilan,
+      alamat_pengiriman: alamatPengiriman || null,
+    };
+
+    const onSuccess = () => {
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success,
+      ).catch(() => {});
+      toast.show(isEdit ? "Perubahan tersimpan" : "Penjualan tersimpan", "success");
+      if (isEdit) router.back();
+      else router.replace("/history");
+    };
+    const onError = (e: any) => {
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Error,
+      ).catch(() => {});
+      toast.show(e?.message || "Gagal menyimpan", "error");
+    };
+
+    if (isEdit && editId) {
+      updateSale.mutate({ id: editId, payload }, { onSuccess, onError });
+    } else {
+      createSale.mutate(payload, { onSuccess, onError });
+    }
   };
+
+  const saving = createSale.isPending || updateSale.isPending;
 
   return (
     <View style={styles.root}>
@@ -105,7 +163,7 @@ export default function SellScreen() {
         >
           <ArrowLeft size={22} color={colors.onSurface} weight="bold" />
         </Pressable>
-        <Text style={styles.headerTitle}>Barang Terjual</Text>
+        <Text style={styles.headerTitle}>{isEdit ? "Edit Penjualan" : "Barang Terjual"}</Text>
         <View style={{ width: 42 }} />
       </View>
 
@@ -268,15 +326,19 @@ export default function SellScreen() {
           <Pressable
             testID="save-sale-button"
             onPress={onSave}
-            disabled={createSale.isPending}
+            disabled={saving}
             style={({ pressed }) => [
               styles.saveBtn,
               pressed && { opacity: 0.9 },
-              createSale.isPending && { opacity: 0.7 },
+              saving && { opacity: 0.7 },
             ]}
           >
             <Text style={styles.saveBtnText}>
-              {createSale.isPending ? "MENYIMPAN..." : "SIMPAN PENJUALAN"}
+              {saving
+                ? "MENYIMPAN..."
+                : isEdit
+                  ? "SIMPAN PERUBAHAN"
+                  : "SIMPAN PENJUALAN"}
             </Text>
           </Pressable>
         </View>

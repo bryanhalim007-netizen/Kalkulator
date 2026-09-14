@@ -8,6 +8,7 @@ import {
   CreditCard,
   MapPin,
   Package,
+  PencilSimple,
   TrashSimple,
   WhatsappLogo,
 } from "phosphor-react-native";
@@ -66,12 +67,16 @@ export default function SaleDetailScreen() {
         </Pressable>
         <Text style={styles.headerTitle}>Detail Penjualan</Text>
         <Pressable
-          testID="detail-share-button"
-          onPress={onShare}
+          testID="detail-edit-button"
+          onPress={() => {
+            if (!sale) return;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            router.push({ pathname: "/sell", params: { editId: sale.id } });
+          }}
           hitSlop={10}
           style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
         >
-          <WhatsappLogo size={22} color={colors.success} weight="fill" />
+          <PencilSimple size={22} color={colors.onSurface} weight="bold" />
         </Pressable>
       </View>
 

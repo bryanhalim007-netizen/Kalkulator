@@ -101,3 +101,13 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Iteration 5 (2026-06) — Edit Sale, PIN redesign, Keypad toggle, Emoji-free receipt
+- Backend: added `PUT /api/sales/{id}` (update). Verified via curl (create→put→delete OK).
+- Frontend new/changed:
+  - sale/[id].tsx: header now has Edit (pencil) button → navigates to /sell?editId=<id>
+  - sell.tsx: edit mode prefills all fields from useSale, title "Edit Penjualan", button "SIMPAN PERUBAHAN", calls useUpdateSale then router.back()
+  - index.tsx: redesigned PIN screen (glassy panel, red handle, animated glowing dots)
+  - home.tsx: "Sembunyikan/Tampilkan Keypad" toggle
+  - share.ts: WhatsApp receipt now emoji-free
+- test_plan: verify edit flow end-to-end (open a sale detail → Edit → change fields → save → detail reflects change).
+- PIN: 8193

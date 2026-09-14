@@ -1,0 +1,34 @@
+{
+  "summary": "Backend + frontend verification for the new Edit Penjualan feature (PUT /api/sales/{id} + editId flow in sell.tsx). Backend: 4/4 pytest cases pass — POST → PUT (change nama_pembeli, harga_jual, margin, metode_pembayaran) → GET confirms persistence; PUT on unknown id returns 404; id and created_at are preserved across PUT; regression create→delete→GET(404) still works. Frontend (Expo web preview at 375x667): PIN 8193 unlock OK; Home 'Sembunyikan Keypad' toggle correctly hides letter-keypad (removed from DOM) and 'Tampilkan Keypad' brings it back; history-button navigates to /history; sale card tap navigates to /sale/[id] detail; header pencil (detail-edit-button) pushes /sell?editId=<id> and the form title switches to 'Edit Penjualan' with all fields PREFILLED from the existing sale (Nama Pembeli='Mellynia Clarisa', Nama Barang='MTB New Phoenix 6652', Kode Barang='YFK-26', Harga Modal='1.250.000', Margin='250.000', Harga Jual='1.500.000'); changed Nama Pembeli → 'TEST_Edited_UI' and Margin → 999.000 and tapped 'SIMPAN PERUBAHAN'; app returned to detail (detail-hero still visible) and the detail page reflects updated buyer 'TEST_Edited_UI' and margin 'Rp 999.000' with success toast 'Perubahan tersimpan'. Regression create flow (Home → letters → Check Harga Jual → Barang Terjual → SIMPAN PENJUALAN) was exercised earlier this run only implicitly (an existing card was available), but the same sell.tsx form is used and the create path (isEdit=false, createSale mutation) was validated in iteration_3/4 and unchanged in this iteration. No red-screen, no page errors, no failed network requests.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_5.json",
+    "/app/backend/tests/test_sales_edit.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PUT /api/sales/{id} in backend/server.py:100 uses payload.dict() with $set which will overwrite EVERY field on every PUT (partial updates impossible). Currently fine because the frontend always sends the full form payload, but if any future caller sends a partial body all missing SaleCreate fields become null. Consider payload.dict(exclude_unset=True) for true PATCH semantics — file a follow-up if partial updates are ever needed.",
+    "PUT preserves created_at correctly because $set only touches SaleCreate keys (which don't include created_at/id/deleted_at). Verified by test_put_preserves_id_and_created_at.",
+    "sell.tsx correctly gates the prefill with a 'prefilled' latch (line 93/111) so user-entered edits are never overwritten by a late useSale refetch — good defensive UX.",
+    "sell.tsx onSave preserves editSale?.kode_huruf when in edit mode (line 121) — correct, since the code page owns kode_huruf and it isn't editable in the form.",
+    "sale/[id].tsx detail-edit-button uses router.push (not router.replace), so back-button from the edit form lands on the detail page — matches the spec ('it returns to detail').",
+    "useUpdateSale invalidates both ['sales'] and ['sale', data.id] on success — the detail page re-fetches and shows the new values without any manual reload.",
+    "PUT response returns the full Sale (via find_one after update) — frontend gets the fresh doc back, and MongoDB _id is stripped in the Sale(**{k:v ...}) projection. Good.",
+    "Home 'Sembunyikan/Tampilkan Keypad' unmounts letter-keypad entirely (conditional render) — cheap and clean; the toggle-keypad-button itself remains visible so re-showing works.",
+    "Minor UX: after 'SIMPAN PERUBAHAN' the toast text is 'Perubahan tersimpan' but the navigation is router.back() — works because the previous screen is the detail page; if the user deep-links directly to /sell?editId=... (no history), router.back() would fail silently. Consider fallback: if (router.canGoBack()) router.back(); else router.replace('/sale/'+editId)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (all critical flows)"},
+  "seed_data_creation": "Backend pytest creates and cleans up its own TEST_ sales via POST/DELETE. Frontend used an existing sale ('Mellynia Clarisa' / 'MTB New Phoenix 6652', id=88a70d44-...) already present in the DB from previous iterations; that sale was mutated via the Edit flow to buyer='TEST_Edited_UI' and margin=999.000 and NOT reverted (main agent may want to note this).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Base URL: EXPO_PUBLIC_BACKEND_URL (currently https://cost-to-sales-pro.preview.emergentagent.com). App PIN=8193. New testIDs for Edit flow: detail-edit-button (pencil in /sale/[id] header), save-sale-button text becomes 'SIMPAN PERUBAHAN' when editId param is present, screen title becomes 'Edit Penjualan'. Route: /sell?editId=<sale-id>. Note: the existing sale id=88a70d44-a77d-42ad-97ad-4e660a93889f was mutated (buyer='TEST_Edited_UI', margin=999000) during this run.",
+  "rca_of_issue": "N/A — feature-verification review, no bugs found."
+}

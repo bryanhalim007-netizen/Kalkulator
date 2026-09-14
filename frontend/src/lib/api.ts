@@ -68,6 +68,21 @@ export function useCreateSale() {
   });
 }
 
+export function useUpdateSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: SaleCreate }) =>
+      request<Sale>(`/sales/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["sale", data.id] });
+    },
+  });
+}
+
 export function useDeleteSale() {
   const qc = useQueryClient();
   return useMutation({

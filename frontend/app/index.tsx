@@ -92,9 +92,10 @@ export default function PinLockScreen() {
           <Text style={styles.tagline}>KASIR SEPEDA</Text>
         </View>
 
-        <View style={styles.bottom}>
+        <View style={styles.panel}>
+          <View style={styles.handle} />
           <Text style={styles.title}>Masukkan PIN</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, error && styles.subtitleError]}>
             {error ? "PIN salah, coba lagi" : "Buka kunci untuk melanjutkan"}
           </Text>
 
@@ -102,19 +103,9 @@ export default function PinLockScreen() {
             style={[styles.dotsRow, { transform: [{ translateX: shake }] }]}
             testID="pin-dots"
           >
-            {[0, 1, 2, 3].map((i) => {
-              const filled = i < pin.length;
-              return (
-                <View
-                  key={i}
-                  style={[
-                    styles.dot,
-                    filled && styles.dotFilled,
-                    error && styles.dotError,
-                  ]}
-                />
-              );
-            })}
+            {[0, 1, 2, 3].map((i) => (
+              <PinDot key={i} filled={i < pin.length} error={error} />
+            ))}
           </Animated.View>
 
           <View style={styles.keypad}>
@@ -146,6 +137,32 @@ export default function PinLockScreen() {
 }
 
 const KEY_SIZE = 72;
+
+function PinDot({ filled, error }: { filled: boolean; error: boolean }) {
+  const styles = useStyles();
+  const scale = useRef(new Animated.Value(filled ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: filled ? 1 : 0,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 140,
+    }).start();
+  }, [filled, scale]);
+
+  return (
+    <View style={[styles.dot, error && styles.dotError]}>
+      <Animated.View
+        style={[
+          styles.dotFill,
+          error && styles.dotFillError,
+          { transform: [{ scale }] },
+        ]}
+      />
+    </View>
+  );
+}
 
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.surface },
@@ -180,7 +197,23 @@ const useStyles = makeStyles((colors) => ({
     color: colors.muted,
     marginTop: 2,
   },
-  bottom: { alignItems: "center" },
+  panel: {
+    alignItems: "center",
+    backgroundColor: "rgba(26,26,26,0.7)",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 28,
+  },
+  handle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.brandPrimary,
+    marginBottom: 18,
+  },
   title: {
     fontFamily: fonts.displaySemi,
     fontSize: 26,
@@ -193,20 +226,34 @@ const useStyles = makeStyles((colors) => ({
     color: colors.muted,
     marginTop: 4,
   },
+  subtitleError: { color: colors.error },
   dotsRow: { flexDirection: "row", gap: 18, marginVertical: 28 },
   dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
     backgroundColor: "transparent",
-  },
-  dotFilled: {
-    backgroundColor: colors.brandPrimary,
-    borderColor: colors.brandPrimary,
+    alignItems: "center",
+    justifyContent: "center",
   },
   dotError: { borderColor: colors.error },
+  dotFill: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.brandPrimary,
+    shadowColor: colors.brandPrimary,
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  dotFillError: {
+    backgroundColor: colors.error,
+    shadowColor: colors.error,
+  },
   keypad: {
     flexDirection: "row",
     flexWrap: "wrap",
