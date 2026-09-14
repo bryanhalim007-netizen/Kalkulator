@@ -60,6 +60,14 @@ export default function HomeScreen() {
     setLetters([]);
   };
 
+  const onChangeCode = (text: string) => {
+    const clean = text
+      .toUpperCase()
+      .split("")
+      .filter((c) => KEYPAD_LETTERS.includes(c));
+    setLetters(clean);
+  };
+
   const onCheck = () => {
     if (hargaModal <= 0) {
       toast.show("Masukkan kode harga dulu", "error");
@@ -136,17 +144,23 @@ export default function HomeScreen() {
               </Pressable>
             )}
           </View>
-          <Text
-            testID="code-display"
-            style={[styles.codeValue, letters.length === 0 && styles.codePlaceholder]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-          >
-            {letters.length > 0 ? letters.join(" ") : "—"}
-          </Text>
+          <TextInput
+            testID="code-input"
+            value={letters.join("")}
+            onChangeText={onChangeCode}
+            placeholder="Ketik kode, mis. YVK"
+            placeholderTextColor={colors.surfaceTertiary}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            autoComplete="off"
+            style={styles.codeInput}
+          />
           {digits.length > 0 && (
             <Text style={styles.digitsHint}>{digits.split("").join(" ")}</Text>
           )}
+          <Text style={styles.codeHelper}>
+            Huruf: P Y F V H K T B R Q Z · Z = ulang angka
+          </Text>
         </View>
 
         {/* Modal + Jual readout */}
@@ -348,6 +362,20 @@ const useStyles = makeStyles((colors) => ({
     marginTop: 6,
   },
   codePlaceholder: { color: colors.surfaceTertiary },
+  codeInput: {
+    fontFamily: fonts.display,
+    fontSize: 40,
+    letterSpacing: 6,
+    color: colors.onSurface,
+    marginTop: 6,
+    paddingVertical: 2,
+  },
+  codeHelper: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: 8,
+  },
   digitsHint: {
     fontFamily: fonts.medium,
     fontSize: 14,
