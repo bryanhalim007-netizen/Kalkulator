@@ -9,14 +9,19 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.costtosalespro.r04sec"
+      "bundleIdentifier": "com.emergent.costtosalespro.r04sec",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Foto produk sepeda yang terjual",
+        "NSPhotoLibraryUsageDescription": "Pilih foto produk dari galeri"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.emergent.costtosalespro.r04sec"
+      "package": "com.emergent.costtosalespro.r04sec",
+      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
     },
     "web": {
       "bundler": "metro",
@@ -48,6 +53,7 @@
         }
       ],
       "expo-image",
+      "expo-image-picker",
       "expo-secure-store",
       "expo-web-browser",
       "expo-status-bar"

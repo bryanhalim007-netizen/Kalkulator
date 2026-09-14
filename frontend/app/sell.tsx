@@ -1,8 +1,23 @@
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, CalendarBlank } from "phosphor-react-native";
+import {
+  ArrowLeft,
+  Camera,
+  CalendarBlank,
+  ImageSquare,
+  X,
+} from "phosphor-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import {
   KeyboardAwareScrollView,
   KeyboardStickyView,
@@ -12,7 +27,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DatePickerModal } from "@/src/components/date-picker-modal";
 import { Segmented } from "@/src/components/segmented";
 import { useToast } from "@/src/components/toast";
-import { useCreateSale, useSale, useUpdateSale } from "@/src/lib/api";
+import { fileUrl, uploadImage, useCreateSale, useSale, useUpdateSale } from "@/src/lib/api";
 import { formatNumber, parseNumberInput } from "@/src/lib/format";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
 
@@ -90,6 +105,9 @@ export default function SellScreen() {
     null,
   );
   const [alamatPengiriman, setAlamatPengiriman] = useState("");
+  const [fotoPath, setFotoPath] = useState<string | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [prefilled, setPrefilled] = useState(false);
 
   // Prefill semua kolom saat mode edit (sekali, ketika data tiba).
@@ -108,8 +126,78 @@ export default function SellScreen() {
     setSudahDiambil(editSale.sudah_diambil ?? null);
     setMetodePengambilan(editSale.metode_pengambilan ?? null);
     setAlamatPengiriman(editSale.alamat_pengiriman ?? "");
+    setFotoPath(editSale.foto_path ?? null);
+    setFotoPreview(fileUrl(editSale.foto_path));
     setPrefilled(true);
   }, [isEdit, editSale, prefilled]);
+
+  const doUpload = async (uri: string) => {
+    setUploading(true);
+    setFotoPreview(uri);
+    try {
+      const path = await uploadImage(uri);
+      setFotoPath(path);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      toast.show("Foto terunggah", "success");
+    } catch (e: any) {
+      setFotoPreview(fileUrl(fotoPath));
+      toast.show(e?.message || "Gagal mengunggah foto", "error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const ensurePermission = async (kind: "camera" | "gallery") => {
+    const get =
+      kind === "camera"
+        ? ImagePicker.getCameraPermissionsAsync
+        : ImagePicker.getMediaLibraryPermissionsAsync;
+    const req =
+      kind === "camera"
+        ? ImagePicker.requestCameraPermissionsAsync
+        : ImagePicker.requestMediaLibraryPermissionsAsync;
+    let perm = await get();
+    if (perm.status !== "granted" && perm.canAskAgain) {
+      perm = await req();
+    }
+    if (perm.status !== "granted") {
+      toast.show(
+        kind === "camera"
+          ? "Izin kamera diperlukan. Aktifkan di Pengaturan."
+          : "Izin galeri diperlukan. Aktifkan di Pengaturan.",
+        "error",
+      );
+      if (!perm.canAskAgain) Linking.openSettings().catch(() => {});
+      return false;
+    }
+    return true;
+  };
+
+  const pickFromGallery = async () => {
+    Haptics.selectionAsync().catch(() => {});
+    if (!(await ensurePermission("gallery"))) return;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.6,
+    });
+    if (!res.canceled && res.assets?.[0]) doUpload(res.assets[0].uri);
+  };
+
+  const takePhoto = async () => {
+    Haptics.selectionAsync().catch(() => {});
+    if (!(await ensurePermission("camera"))) return;
+    const res = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.6,
+    });
+    if (!res.canceled && res.assets?.[0]) doUpload(res.assets[0].uri);
+  };
+
+  const removePhoto = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setFotoPath(null);
+    setFotoPreview(null);
+  };
 
   const onSave = () => {
     const payload = {
@@ -126,6 +214,7 @@ export default function SellScreen() {
       sudah_diambil: sudahDiambil,
       metode_pengambilan: metodePengambilan,
       alamat_pengiriman: alamatPengiriman || null,
+      foto_path: fotoPath,
     };
 
     const onSuccess = () => {
@@ -150,7 +239,7 @@ export default function SellScreen() {
     }
   };
 
-  const saving = createSale.isPending || updateSale.isPending;
+  const saving = createSale.isPending || updateSale.isPending || uploading;
 
   return (
     <View style={styles.root}>
@@ -174,6 +263,58 @@ export default function SellScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.optionalNote}>Semua kolom bersifat opsional</Text>
+
+        <Field label="Foto Produk" testID="field-foto">
+          {fotoPreview ? (
+            <View style={styles.photoWrap} testID="foto-preview">
+              <Image source={{ uri: fotoPreview }} style={styles.photo} contentFit="cover" />
+              {uploading && (
+                <View style={styles.photoOverlay}>
+                  <ActivityIndicator color={colors.onBrandPrimary} />
+                  <Text style={styles.photoOverlayText}>Mengunggah...</Text>
+                </View>
+              )}
+              {!uploading && (
+                <>
+                  <Pressable
+                    testID="foto-remove"
+                    onPress={removePhoto}
+                    hitSlop={8}
+                    style={styles.photoRemove}
+                  >
+                    <X size={16} color={colors.onSurface} weight="bold" />
+                  </Pressable>
+                  <Pressable
+                    testID="foto-change"
+                    onPress={pickFromGallery}
+                    style={styles.photoChange}
+                  >
+                    <Text style={styles.photoChangeText}>Ganti</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          ) : (
+            <View style={styles.photoBtnRow}>
+              <Pressable
+                testID="foto-gallery"
+                onPress={pickFromGallery}
+                style={({ pressed }) => [styles.photoBtn, pressed && styles.iconBtnPressed]}
+              >
+                <ImageSquare size={22} color={colors.brandPrimary} weight="bold" />
+                <Text style={styles.photoBtnText}>Galeri</Text>
+              </Pressable>
+              <Pressable
+                testID="foto-camera"
+                onPress={takePhoto}
+                style={({ pressed }) => [styles.photoBtn, pressed && styles.iconBtnPressed]}
+              >
+                <Camera size={22} color={colors.brandPrimary} weight="bold" />
+                <Text style={styles.photoBtnText}>Kamera</Text>
+              </Pressable>
+            </View>
+          )}
+        </Field>
 
         <Field label="Tanggal Penjualan" testID="field-tanggal">
           <Pressable
@@ -406,6 +547,75 @@ const useStyles = makeStyles((colors) => ({
     fontSize: 12,
     color: colors.muted,
     marginBottom: 2,
+  },
+  photoBtnRow: { flexDirection: "row", gap: 12 },
+  photoBtn: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    borderRadius: 12,
+    paddingVertical: 18,
+  },
+  photoBtnText: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.onSurface,
+  },
+  photoWrap: {
+    height: 200,
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  photo: { width: "100%", height: "100%" },
+  photoOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  photoOverlayText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.onBrandPrimary,
+  },
+  photoRemove: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  photoChange: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    backgroundColor: colors.brandPrimary,
+  },
+  photoChangeText: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.onBrandPrimary,
   },
   field: { gap: 6 },
   label: {

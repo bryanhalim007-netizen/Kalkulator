@@ -1,8 +1,16 @@
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Bicycle, TrashSimple, WhatsappLogo } from "phosphor-react-native";
-import { useState } from "react";
+import {
+  ArrowLeft,
+  Bicycle,
+  CalendarBlank,
+  MagnifyingGlass,
+  TrashSimple,
+  WhatsappLogo,
+  X,
+} from "phosphor-react-native";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,12 +18,14 @@ import {
   RefreshControl,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DatePickerModal } from "@/src/components/date-picker-modal";
 import { useToast } from "@/src/components/toast";
-import { Sale, useDeleteSale, useSales } from "@/src/lib/api";
+import { Sale, fileUrl, useDeleteSale, useSales } from "@/src/lib/api";
 import { formatJam, formatRupiah, formatTanggal } from "@/src/lib/format";
 import { shareSaleToWhatsApp } from "@/src/lib/share";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
@@ -29,6 +39,32 @@ const FILTERS: { key: string; label: string }[] = [
   { key: "sudah", label: "Sudah diambil" },
 ];
 
+const DATE_FILTERS: { key: string; label: string }[] = [
+  { key: "all", label: "Semua tanggal" },
+  { key: "today", label: "Hari ini" },
+  { key: "week", label: "Minggu ini" },
+  { key: "month", label: "Bulan ini" },
+];
+
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function matchDate(sale: Sale, mode: string, custom: Date | null): boolean {
+  if (mode === "all") return true;
+  const t = new Date(sale.created_at);
+  const now = new Date();
+  if (mode === "today") return startOfDay(t) === startOfDay(now);
+  if (mode === "week") {
+    const weekAgo = startOfDay(now) - 6 * 86400000;
+    return startOfDay(t) >= weekAgo && startOfDay(t) <= startOfDay(now);
+  }
+  if (mode === "month")
+    return t.getFullYear() === now.getFullYear() && t.getMonth() === now.getMonth();
+  if (mode === "custom" && custom) return startOfDay(t) === startOfDay(custom);
+  return true;
+}
+
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const styles = useStyles();
@@ -38,15 +74,30 @@ export default function HistoryScreen() {
   const { data, isLoading, isError, refetch, isRefetching } = useSales();
   const deleteSale = useDeleteSale();
   const [filter, setFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customDate, setCustomDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [query, setQuery] = useState("");
 
   const all = data ?? [];
-  const filtered = all.filter((s) =>
-    filter === "all"
-      ? true
-      : filter === "sudah"
-        ? s.sudah_diambil === "Sudah"
-        : s.sudah_diambil !== "Sudah",
-  );
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return all.filter((s) => {
+      const statusOk =
+        filter === "all"
+          ? true
+          : filter === "sudah"
+            ? s.sudah_diambil === "Sudah"
+            : s.sudah_diambil !== "Sudah";
+      const dateOk = matchDate(s, dateFilter, customDate);
+      const searchOk =
+        q.length === 0 ||
+        (s.nama_pembeli || "").toLowerCase().includes(q) ||
+        (s.nama_barang || "").toLowerCase().includes(q) ||
+        (s.kode_barang || "").toLowerCase().includes(q);
+      return statusOk && dateOk && searchOk;
+    });
+  }, [all, filter, dateFilter, customDate, query]);
   const totalOmzet = filtered.reduce((sum, s) => sum + (s.harga_jual || 0), 0);
 
   const onDelete = (sale: Sale) => {
@@ -70,6 +121,13 @@ export default function HistoryScreen() {
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
       <View style={styles.cardTop}>
+        {item.foto_path ? (
+          <Image
+            source={{ uri: fileUrl(item.foto_path)! }}
+            style={styles.cardThumb}
+            contentFit="cover"
+          />
+        ) : null}
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.nama_barang || "Barang tanpa nama"}
@@ -170,6 +228,24 @@ export default function HistoryScreen() {
         <View style={{ width: 42 }} />
       </View>
 
+      <View style={styles.searchWrap}>
+        <MagnifyingGlass size={18} color={colors.muted} weight="bold" />
+        <TextInput
+          testID="search-input"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Cari pembeli / barang / kode"
+          placeholderTextColor={colors.muted}
+          style={styles.searchInput}
+          returnKeyType="search"
+        />
+        {query.length > 0 && (
+          <Pressable testID="search-clear" onPress={() => setQuery("")} hitSlop={8}>
+            <X size={16} color={colors.muted} weight="bold" />
+          </Pressable>
+        )}
+      </View>
+
       <View style={styles.filterWrap}>
         <ScrollView
           horizontal
@@ -193,6 +269,71 @@ export default function HistoryScreen() {
           })}
         </ScrollView>
       </View>
+
+      <View style={styles.dateFilterWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {DATE_FILTERS.map((f) => {
+            const active = dateFilter === f.key;
+            return (
+              <Pressable
+                key={f.key}
+                testID={`date-filter-${f.key}`}
+                onPress={() => {
+                  setDateFilter(f.key);
+                  setCustomDate(null);
+                }}
+                style={[styles.chipSm, active && styles.chipActive]}
+              >
+                <Text style={[styles.chipTextSm, active && styles.chipTextActive]}>
+                  {f.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Pressable
+            testID="date-filter-custom"
+            onPress={() => setShowDatePicker(true)}
+            style={[
+              styles.chipSm,
+              styles.chipDate,
+              dateFilter === "custom" && styles.chipActive,
+            ]}
+          >
+            <CalendarBlank
+              size={14}
+              color={dateFilter === "custom" ? colors.onBrandPrimary : colors.brandPrimary}
+              weight="bold"
+            />
+            <Text
+              style={[
+                styles.chipTextSm,
+                dateFilter === "custom" && styles.chipTextActive,
+              ]}
+            >
+              {dateFilter === "custom" && customDate
+                ? customDate.toLocaleDateString("id-ID", {
+                    day: "2-digit",
+                    month: "short",
+                  })
+                : "Pilih tanggal"}
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+
+      <DatePickerModal
+        visible={showDatePicker}
+        value={customDate ?? new Date()}
+        onSelect={(d) => {
+          setCustomDate(d);
+          setDateFilter("custom");
+        }}
+        onClose={() => setShowDatePicker(false)}
+      />
 
       {isLoading ? (
         <View style={styles.center}>
@@ -302,7 +443,27 @@ const useStyles = makeStyles((colors) => ({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16 },
   listContent: { paddingHorizontal: 20, paddingTop: 8, gap: 12 },
   listEmpty: { flexGrow: 1, justifyContent: "center" },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 20,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    color: colors.onSurface,
+    paddingVertical: 12,
+  },
   filterWrap: { height: 56, justifyContent: "center" },
+  dateFilterWrap: { height: 44, justifyContent: "center", marginBottom: 2 },
   filterRow: { paddingHorizontal: 20, gap: 10, alignItems: "center" },
   chip: {
     height: 36,
@@ -315,6 +476,18 @@ const useStyles = makeStyles((colors) => ({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  chipSm: {
+    height: 30,
+    flexShrink: 0,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipDate: { flexDirection: "row", gap: 6 },
   chipActive: {
     backgroundColor: colors.brandPrimary,
     borderColor: colors.brandPrimary,
@@ -324,7 +497,18 @@ const useStyles = makeStyles((colors) => ({
     fontSize: 13,
     color: colors.onSurfaceSecondary,
   },
+  chipTextSm: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.onSurfaceSecondary,
+  },
   chipTextActive: { color: colors.onBrandPrimary },
+  cardThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceTertiary,
+  },
   summary: {
     flexDirection: "row",
     alignItems: "center",

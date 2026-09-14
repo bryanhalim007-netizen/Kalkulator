@@ -1,9 +1,11 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Response
+from fastapi.concurrency import run_in_threadpool
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import requests
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -18,6 +20,58 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# ---------------------------------------------------------------------------
+# Emergent Object Storage
+# ---------------------------------------------------------------------------
+STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
+STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "skbike"
+storage_key = None
+
+
+def init_storage():
+    global storage_key
+    if storage_key:
+        return storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    storage_key = resp.json()["storage_key"]
+    return storage_key
+
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data,
+        timeout=120,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_object(path: str) -> tuple:
+    global storage_key
+    key = init_storage()
+    resp = requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key},
+        timeout=60,
+    )
+    if resp.status_code == 503:
+        storage_key = None
+        key = init_storage()
+        resp = requests.get(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key},
+            timeout=60,
+        )
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -48,6 +102,7 @@ class Sale(BaseModel):
     sudah_diambil: Optional[str] = None
     metode_pengambilan: Optional[str] = None
     alamat_pengiriman: Optional[str] = None
+    foto_path: Optional[str] = None
     created_at: str = Field(default_factory=now_iso)
     deleted_at: Optional[str] = None
 
@@ -66,6 +121,7 @@ class SaleCreate(BaseModel):
     sudah_diambil: Optional[str] = None
     metode_pengambilan: Optional[str] = None
     alamat_pengiriman: Optional[str] = None
+    foto_path: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +130,46 @@ class SaleCreate(BaseModel):
 @api_router.get("/")
 async def root():
     return {"message": "BikePOS API"}
+
+
+EXT_BY_TYPE = {
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/heic": "heic",
+}
+
+
+@api_router.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="File kosong")
+    content_type = file.content_type or "image/jpeg"
+    ext = EXT_BY_TYPE.get(content_type, "jpg")
+    path = f"{APP_NAME}/uploads/shop/{uuid.uuid4()}.{ext}"
+    try:
+        await run_in_threadpool(put_object, path, content, content_type)
+    except requests.HTTPError as e:
+        status = e.response.status_code if e.response is not None else 500
+        if status == 402:
+            raise HTTPException(status_code=402, detail="Kuota penyimpanan habis")
+        raise HTTPException(status_code=502, detail="Gagal mengunggah gambar")
+    await db.uploads.insert_one({"path": path, "content_type": content_type, "created_at": now_iso()})
+    return {"path": path}
+
+
+@api_router.get("/files/{path:path}")
+async def download_file(path: str):
+    doc = await db.uploads.find_one({"path": path})
+    if not doc:
+        raise HTTPException(status_code=404, detail="File tidak ditemukan")
+    try:
+        data, content_type = await run_in_threadpool(get_object, path)
+    except requests.HTTPError:
+        raise HTTPException(status_code=404, detail="File tidak ditemukan")
+    return Response(content=data, media_type=content_type)
 
 
 @api_router.post("/sales", response_model=Sale)
@@ -135,6 +231,15 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup_init_storage():
+    try:
+        await run_in_threadpool(init_storage)
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.warning(f"Storage init failed: {e}")
 
 
 @app.on_event("shutdown")

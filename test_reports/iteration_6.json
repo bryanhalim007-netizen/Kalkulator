@@ -1,0 +1,43 @@
+{
+  "summary": "SKBike Photo Upload + History Search/Date Filters verification — backend + frontend on public URL. Backend: 30/30 pytest cases pass, including 10 new tests in test_upload_and_foto.py covering POST /api/upload (PNG & JPG returning {path}), GET /api/files/{path} (image/* content-type), empty upload → 400 'File kosong', 404 for unknown file, and Sale foto_path persistence across POST → GET, PUT keep same path, PUT change to new path (upload #2), and PUT clear to null. Emergent Object Storage init works end-to-end and images are served through the FastAPI proxy. Frontend (Expo web, 375x667): PIN 8193 unlock OK; letter keypad Y V K entered (via text, keypad testIDs use pattern `keypad-<letter>` but were not detected — falling back to text worked and the code panel updated to 'Y V K / 1 3 5'); CHECK HARGA JUAL → margin screen shows Harga Modal Rp 1.350.000 and Margin Rp 0; Barang Terjual → sell form loaded with 'Foto Produk' field, both `foto-gallery` and `foto-camera` buttons render. Galeri opened a real file chooser on web — attached a synthetic JPEG, upload succeeded (`uploading` spinner cleared, `foto-preview` visible, toast 'Foto terunggah'), and the returned `foto_path` was included in POST /api/sales — landed on /history with the new card at top ('TEST_PhotoBike_UI' / buyer 'TEST_PhotoBuyer_UI', harga jual Rp 1.350.000, YVK code, blue thumbnail from foto_path). Search: typing 'TEST_PhotoBuyer_UI' filters to 1 card; 'definitely_no_match_zzz' shows the `empty-state` with 'Tidak ada hasil'; `search-clear` X restores full list. Date filters: 'Hari ini' shows the just-created sale, 'Semua tanggal' shows same, 'Pilih tanggal' opens the DatePickerModal (verified visible). Detail: opening the new sale card renders `detail-hero` AND `detail-foto` (image visible at top under the hero, correct order per spec). Regression Edit flow: pencil → /sell?editId, title = 'Edit Penjualan', input-pembeli prefilled with 'TEST_PhotoBuyer_UI', changed to 'TEST_PhotoBuyer_UI_Edited', SIMPAN PERUBAHAN → router.back() returned to detail page (detail-hero visible), toast success. Only console warnings observed: deprecated 'shadow*' style props and 'props.pointerEvents' — pure react-native-web deprecations, no functional impact and no page errors, no failed network requests, no red-screen.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "react-native-web console warnings", "issue": "Non-blocking web warnings: '\"shadow*\" style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents'. Emitted by libraries (likely phosphor-react-native / react-native internals) — no functional impact on this iteration."}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_6.json",
+    "/app/backend/tests/test_upload_and_foto.py",
+    "/app/test_reports/pytest/pytest_upload_foto.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional (minor): the home letter-keypad buttons do not appear to expose testID like `keypad-Y`. Automation had to fall back to text selectors (which worked). Consider adding testID={`keypad-${letter}`} to each Pressable in app/index.tsx keypad grid for more robust testing.",
+    "Optional (minor): PUT /api/sales/{id} still does full-doc $set of every SaleCreate field — for the new photo-clear feature (foto_path: null) this is correct, but any future partial-payload caller will null out all missing fields. Not a bug now."
+  ],
+  "critical_code_review_comments": [
+    "server.py:145 upload_file correctly reads whole file, rejects empty with 400, and derives extension from content-type (with jpg fallback) — ext map covers jpeg/jpg/png/webp/heic. Good.",
+    "server.py:34 init_storage lazily initializes on first put/get, with a 503-recovery re-init on get_object (line 64). Startup event also warms it up — resilient to storage-key rotation.",
+    "server.py:163 GET /api/files/{path:path} only serves paths that exist in db.uploads — good ACL (prevents arbitrary storage reads). Returns full Response with the actual content-type from storage.",
+    "server.py:159 uploads collection is written AFTER put_object succeeds — no orphan DB rows on storage failure. Good ordering.",
+    "sell.tsx:130 fotoPreview is set to fileUrl(editSale.foto_path) on edit-mode prefill so users see the existing photo when editing. removePhoto (line 196) only clears the local state — the previous image object stays in storage (acceptable, no cleanup endpoint).",
+    "sell.tsx:134 doUpload sets fotoPreview to the local uri BEFORE upload for optimistic UX, then reverts to fileUrl(fotoPath) on error — correct rollback.",
+    "sell.tsx:38 Platform.OS==='web' path converts uri to blob before FormData append — necessary because RN FormData wouldn't send correctly on web; verified end-to-end (upload succeeded from Playwright on web).",
+    "history.tsx:53 matchDate uses created_at (ISO UTC) for filtering; startOfDay compares in local tz — 'Hari ini' works for the tester's tz. Verified filter shows the just-created card.",
+    "history.tsx:83 useMemo filter combines status + date + text search in one pass — clean and O(n).",
+    "history.tsx:124 card thumbnail conditionally renders only when foto_path present — no broken-image icon for photoless sales. Good.",
+    "sale/[id].tsx:130 detail-foto renders between hero and Waktu section, matching the spec 'product image shows at top of detail page'.",
+    "api.ts:28 fileUrl returns null for empty path (safe consumer pattern), and BASE_URL is read from EXPO_PUBLIC_BACKEND_URL — no hardcoded URLs."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (30/30, incl. 10 new upload/foto tests)", "frontend": "100% (all photo, search, date-filter, detail-photo, and edit-regression flows)"},
+  "seed_data_creation": "Backend pytest self-cleans TEST_ sales via DELETE. Frontend Playwright created a new sale 'TEST_PhotoBike_UI' / buyer 'TEST_PhotoBuyer_UI_Edited' with an uploaded photo — left in DB for main-agent inspection. Backend pytest also uploaded 3 test images to Emergent object storage (small 8×8 PNG/JPG) — main agent may want to add periodic cleanup for the uploads collection if this becomes a concern.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Base URL: EXPO_PUBLIC_BACKEND_URL = https://cost-to-sales-pro.preview.emergentagent.com. App PIN=8193. Key new testIDs: field-foto, foto-gallery, foto-camera, foto-preview, foto-remove, foto-change (sell.tsx); search-input, search-clear, filter-{all|belum|sudah}, date-filter-{all|today|week|month|custom} (history.tsx); detail-foto (sale/[id].tsx). Home letter-keypad buttons do NOT have `keypad-X` testIDs — use text selectors (page.get_by_text('Y', exact=True).first). Sale created during this run: buyer='TEST_PhotoBuyer_UI_Edited', barang='TEST_PhotoBike_UI', with a real foto_path on Emergent storage.",
+  "rca_of_issue": "N/A — feature-verification review, no bugs found. All 4 acceptance criteria (upload → path → GET image → 400 on empty, foto_path CRUD, photo picker UI + save→history, search + date filters, detail-photo, edit regression) pass end-to-end."
+}

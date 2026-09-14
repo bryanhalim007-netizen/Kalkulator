@@ -17,10 +17,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState } from "react";
 
 import { useToast } from "@/src/components/toast";
-import { Sale, useDeleteSale, useSale } from "@/src/lib/api";
+import { Sale, fileUrl, useDeleteSale, useSale } from "@/src/lib/api";
 import { formatJam, formatRupiah, formatTanggal } from "@/src/lib/format";
 import { shareSaleToWhatsApp } from "@/src/lib/share";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
+import { Image } from "expo-image";
 
 export default function SaleDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -124,6 +125,16 @@ export default function SaleDetailScreen() {
               <Text style={styles.heroLabel}>HARGA JUAL</Text>
               <Text style={styles.heroPrice}>{formatRupiah(sale.harga_jual)}</Text>
             </View>
+
+            {/* Foto Produk */}
+            {sale.foto_path ? (
+              <Image
+                testID="detail-foto"
+                source={{ uri: fileUrl(sale.foto_path)! }}
+                style={styles.detailPhoto}
+                contentFit="cover"
+              />
+            ) : null}
 
             {/* Waktu */}
             <Section title="Waktu" icon={<CalendarBlank size={16} color={colors.brandPrimary} weight="bold" />}>
@@ -318,6 +329,15 @@ const useStyles = makeStyles((colors) => ({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyTitle: { fontFamily: fonts.displaySemi, fontSize: 20, color: colors.onSurface },
   scroll: { paddingHorizontal: 20, paddingTop: 6, gap: 16 },
+
+  detailPhoto: {
+    width: "100%",
+    height: 220,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+  },
 
   hero: {
     backgroundColor: colors.surfaceSecondary,

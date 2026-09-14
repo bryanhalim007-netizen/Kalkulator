@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Platform } from "react-native";
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -17,11 +18,44 @@ export type Sale = {
   sudah_diambil?: string | null;
   metode_pengambilan?: string | null;
   alamat_pengiriman?: string | null;
+  foto_path?: string | null;
   created_at: string;
   deleted_at?: string | null;
 };
 
 export type SaleCreate = Omit<Sale, "id" | "created_at" | "deleted_at">;
+
+export function fileUrl(path?: string | null): string | null {
+  if (!path) return null;
+  return `${BASE_URL}/api/files/${path}`;
+}
+
+export async function uploadImage(uri: string): Promise<string> {
+  const name = uri.split("/").pop() || `photo-${Date.now()}.jpg`;
+  const ext = (name.split(".").pop() || "jpg").toLowerCase();
+  const type = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+  const form = new FormData();
+  if (Platform.OS === "web") {
+    const blob = await (await fetch(uri)).blob();
+    form.append("file", blob, name);
+  } else {
+    form.append("file", { uri, name, type } as any);
+  }
+  const res = await fetch(`${BASE_URL}/api/upload`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    let detail = `Upload gagal (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = body.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+  const data = (await res.json()) as { path: string };
+  return data.path;
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}/api${path}`, {

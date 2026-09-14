@@ -111,3 +111,16 @@
   - share.ts: WhatsApp receipt now emoji-free
 - test_plan: verify edit flow end-to-end (open a sale detail → Edit → change fields → save → detail reflects change).
 - PIN: 8193
+
+## Iteration 6 (2026-06) — Product photo upload + History search & date filters
+- Backend: Emergent Object Storage integrated.
+  - POST /api/upload (multipart file) -> stores at skbike/uploads/shop/{uuid}.{ext}, records in db.uploads, returns {path}. Verified via curl (upload+download 200 image/jpeg).
+  - GET /api/files/{path} -> streams image bytes (public read, checks db.uploads).
+  - Sale model + SaleCreate gained foto_path; PUT/POST persist it.
+- Frontend:
+  - sell.tsx: "Foto Produk" field — Galeri + Kamera (expo-image-picker) with permission handling, upload w/ progress overlay, preview, Ganti/remove. foto_path saved in payload; prefilled in edit mode.
+  - sale/[id].tsx: shows product photo (fileUrl(foto_path)).
+  - history.tsx: card thumbnail; search input (nama_pembeli/nama_barang/kode_barang); date filter presets (Semua/Hari ini/Minggu ini/Bulan ini) + custom date via DatePickerModal (filters by created_at).
+  - app.json: camera + photo permissions, expo-image-picker plugin.
+- test_plan: (1) backend upload/download; (2) create sale WITH photo -> appears on history thumbnail + detail; (3) search filters list; (4) date presets filter list.
+- Note: image upload/camera must be tested on web preview AND native build (web uses blob body). PIN 8193.
