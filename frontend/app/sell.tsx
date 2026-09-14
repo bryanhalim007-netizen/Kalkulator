@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft } from "phosphor-react-native";
+import { ArrowLeft, CalendarBlank } from "phosphor-react-native";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import {
@@ -9,13 +9,15 @@ import {
 } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DatePickerModal } from "@/src/components/date-picker-modal";
+import { Segmented } from "@/src/components/segmented";
 import { useToast } from "@/src/components/toast";
 import { useCreateSale } from "@/src/lib/api";
 import { formatNumber, parseNumberInput } from "@/src/lib/format";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
 
-function todayLabel() {
-  return new Date().toLocaleDateString("id-ID", {
+function formatDateLabel(d: Date) {
+  return d.toLocaleDateString("id-ID", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -37,7 +39,8 @@ export default function SellScreen() {
     kode?: string;
   }>();
 
-  const [tanggal, setTanggal] = useState(todayLabel());
+  const [date, setDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [namaPembeli, setNamaPembeli] = useState("");
   const [namaBarang, setNamaBarang] = useState("");
   const [kodeBarang, setKodeBarang] = useState(params.kode ?? "");
@@ -49,11 +52,17 @@ export default function SellScreen() {
     formatNumber(Number(params.hargaJual ?? 0)),
   );
   const [margin, setMargin] = useState(formatNumber(Number(params.margin ?? 0)));
+  const [metodePembayaran, setMetodePembayaran] = useState<string | null>(null);
+  const [sudahDiambil, setSudahDiambil] = useState<string | null>(null);
+  const [metodePengambilan, setMetodePengambilan] = useState<string | null>(
+    null,
+  );
+  const [alamatPengiriman, setAlamatPengiriman] = useState("");
 
   const onSave = () => {
     createSale.mutate(
       {
-        tanggal_penjualan: tanggal || null,
+        tanggal_penjualan: formatDateLabel(date),
         nama_pembeli: namaPembeli || null,
         nama_barang: namaBarang || null,
         kode_barang: kodeBarang || null,
@@ -62,6 +71,10 @@ export default function SellScreen() {
         harga_modal: parseNumberInput(hargaModal) || null,
         harga_jual: parseNumberInput(hargaJual) || null,
         margin: parseNumberInput(margin) || null,
+        metode_pembayaran: metodePembayaran,
+        sudah_diambil: sudahDiambil,
+        metode_pengambilan: metodePengambilan,
+        alamat_pengiriman: alamatPengiriman || null,
       },
       {
         onSuccess: () => {
@@ -105,14 +118,16 @@ export default function SellScreen() {
         <Text style={styles.optionalNote}>Semua kolom bersifat opsional</Text>
 
         <Field label="Tanggal Penjualan" testID="field-tanggal">
-          <TextInput
-            testID="input-tanggal"
-            value={tanggal}
-            onChangeText={setTanggal}
-            placeholder="cth. 12 Juni 2026"
-            placeholderTextColor={colors.muted}
-            style={styles.input}
-          />
+          <Pressable
+            testID="date-picker-button"
+            onPress={() => setShowDatePicker(true)}
+            style={({ pressed }) => [styles.dateBtn, pressed && styles.iconBtnPressed]}
+          >
+            <CalendarBlank size={20} color={colors.brandPrimary} weight="bold" />
+            <Text testID="date-picker-value" style={styles.dateBtnText}>
+              {formatDateLabel(date)}
+            </Text>
+          </Pressable>
         </Field>
 
         <Field label="Nama Pembeli" testID="field-pembeli">
@@ -198,6 +213,54 @@ export default function SellScreen() {
             />
           </View>
         </Field>
+
+        <Field label="Metode Pembayaran" testID="field-pembayaran">
+          <Segmented
+            testIDPrefix="pembayaran"
+            value={metodePembayaran}
+            onChange={setMetodePembayaran}
+            options={[
+              { value: "Cash", label: "Cash" },
+              { value: "Transfer", label: "Transfer" },
+            ]}
+          />
+        </Field>
+
+        <Field label="Apakah sudah diambil?" testID="field-diambil">
+          <Segmented
+            testIDPrefix="diambil"
+            value={sudahDiambil}
+            onChange={setSudahDiambil}
+            options={[
+              { value: "Belum", label: "Belum" },
+              { value: "Sudah", label: "Sudah" },
+            ]}
+          />
+        </Field>
+
+        <Field label="Metode Pengambilan" testID="field-pengambilan">
+          <Segmented
+            testIDPrefix="pengambilan"
+            value={metodePengambilan}
+            onChange={setMetodePengambilan}
+            options={[
+              { value: "Pick up Sendiri", label: "Pick up Sendiri" },
+              { value: "Travel", label: "Travel" },
+            ]}
+          />
+        </Field>
+
+        <Field label="Alamat Pengiriman" testID="field-alamat">
+          <TextInput
+            testID="input-alamat"
+            value={alamatPengiriman}
+            onChangeText={setAlamatPengiriman}
+            placeholder="Alamat lengkap pengiriman"
+            placeholderTextColor={colors.muted}
+            multiline
+            style={[styles.input, styles.textArea]}
+          />
+        </Field>
       </KeyboardAwareScrollView>
 
       <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
@@ -218,6 +281,13 @@ export default function SellScreen() {
           </Pressable>
         </View>
       </KeyboardStickyView>
+
+      <DatePickerModal
+        visible={showDatePicker}
+        value={date}
+        onSelect={setDate}
+        onClose={() => setShowDatePicker(false)}
+      />
     </View>
   );
 }
@@ -291,6 +361,23 @@ const useStyles = makeStyles((colors) => ({
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontFamily: fonts.medium,
+    fontSize: 16,
+    color: colors.onSurface,
+  },
+  textArea: { minHeight: 84, textAlignVertical: "top", paddingTop: 13 },
+  dateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 15,
+  },
+  dateBtnText: {
+    fontFamily: fonts.semibold,
     fontSize: 16,
     color: colors.onSurface,
   },

@@ -44,6 +44,10 @@ class Sale(BaseModel):
     harga_modal: Optional[float] = None
     harga_jual: Optional[float] = None
     margin: Optional[float] = None
+    metode_pembayaran: Optional[str] = None
+    sudah_diambil: Optional[str] = None
+    metode_pengambilan: Optional[str] = None
+    alamat_pengiriman: Optional[str] = None
     created_at: str = Field(default_factory=now_iso)
     deleted_at: Optional[str] = None
 
@@ -58,6 +62,10 @@ class SaleCreate(BaseModel):
     harga_modal: Optional[float] = None
     harga_jual: Optional[float] = None
     margin: Optional[float] = None
+    metode_pembayaran: Optional[str] = None
+    sudah_diambil: Optional[str] = None
+    metode_pengambilan: Optional[str] = None
+    alamat_pengiriman: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

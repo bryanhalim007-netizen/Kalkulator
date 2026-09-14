@@ -20,8 +20,7 @@ export function parseNumberInput(text: string): number {
   return parseInt(digits, 10);
 }
 
-export function formatTanggal(iso: string | null | undefined): string {
-  if (!iso) return "";
+export function formatTanggal(iso: string | null | undefined): string {  if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("id-ID", {
@@ -30,3 +29,15 @@ export function formatTanggal(iso: string | null | undefined): string {
     year: "numeric",
   });
 }
+
+// Transaction time in WIB (UTC+7), e.g. "14:35 WIB".
+export function formatJam(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+  const hh = String(wib.getUTCHours()).padStart(2, "0");
+  const mm = String(wib.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm} WIB`;
+}
+

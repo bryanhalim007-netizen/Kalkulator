@@ -13,6 +13,10 @@ export type Sale = {
   harga_modal?: number | null;
   harga_jual?: number | null;
   margin?: number | null;
+  metode_pembayaran?: string | null;
+  sudah_diambil?: string | null;
+  metode_pengambilan?: string | null;
+  alamat_pengiriman?: string | null;
   created_at: string;
   deleted_at?: string | null;
 };

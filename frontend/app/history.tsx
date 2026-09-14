@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/toast";
 import { Sale, useDeleteSale, useSales } from "@/src/lib/api";
-import { formatRupiah, formatTanggal } from "@/src/lib/format";
+import { formatJam, formatRupiah, formatTanggal } from "@/src/lib/format";
 import { fonts, makeStyles, useTheme } from "@/src/theme";
 
 const EMPTY_IMAGE =
@@ -31,6 +31,7 @@ function buildSaleMessage(item: Sale): string {
     "*Rincian Penjualan - SKBike*",
     "",
     line("Tanggal Penjualan", item.tanggal_penjualan || formatTanggal(item.created_at)),
+    line("Jam Transaksi", formatJam(item.created_at)),
     line("Nama Pembeli", item.nama_pembeli),
     line("Nama Barang", item.nama_barang),
     line("Kode Barang", item.kode_barang),
@@ -38,6 +39,10 @@ function buildSaleMessage(item: Sale): string {
     line("Harga Modal", formatRupiah(item.harga_modal)),
     line("Margin", formatRupiah(item.margin)),
     line("Harga Jual", formatRupiah(item.harga_jual)),
+    line("Metode Pembayaran", item.metode_pembayaran),
+    line("Sudah Diambil", item.sudah_diambil),
+    line("Metode Pengambilan", item.metode_pengambilan),
+    line("Alamat Pengiriman", item.alamat_pengiriman),
   ].join("\n");
 }
 
@@ -79,9 +84,13 @@ export default function HistoryScreen() {
             {item.nama_barang || "Barang tanpa nama"}
           </Text>
           <Text style={styles.cardMeta} numberOfLines={1}>
-            {[item.nama_pembeli, item.tanggal_penjualan || formatTanggal(item.created_at)]
+            {[
+              item.nama_pembeli,
+              item.tanggal_penjualan || formatTanggal(item.created_at),
+              formatJam(item.created_at),
+            ]
               .filter(Boolean)
-              .join(" • ") || formatTanggal(item.created_at)}
+              .join(" • ")}
           </Text>
         </View>
         <View style={styles.cardActions}>
@@ -108,6 +117,37 @@ export default function HistoryScreen() {
         <Text style={styles.cardSub} numberOfLines={1}>
           {[item.kode_barang, item.ukuran_warna].filter(Boolean).join(" • ")}
         </Text>
+      )}
+
+      {(item.metode_pembayaran ||
+        item.sudah_diambil ||
+        item.metode_pengambilan) && (
+        <View style={styles.tagRow}>
+          {[item.metode_pembayaran, item.metode_pengambilan]
+            .filter(Boolean)
+            .map((t, i) => (
+              <View key={i} style={styles.tag}>
+                <Text style={styles.tagText}>{t}</Text>
+              </View>
+            ))}
+          {item.sudah_diambil && (
+            <View
+              style={[
+                styles.tag,
+                item.sudah_diambil === "Sudah" && styles.tagSuccess,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tagText,
+                  item.sudah_diambil === "Sudah" && styles.tagTextSuccess,
+                ]}
+              >
+                {item.sudah_diambil === "Sudah" ? "Sudah diambil" : "Belum diambil"}
+              </Text>
+            </View>
+          )}
+        </View>
       )}
 
       <View style={styles.cardDivider} />
@@ -257,6 +297,20 @@ const useStyles = makeStyles((colors) => ({
     color: colors.onSurfaceTertiary,
     marginTop: 6,
   },
+  tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  tag: {
+    backgroundColor: colors.surfaceTertiary,
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  tagText: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    color: colors.onSurfaceTertiary,
+  },
+  tagSuccess: { backgroundColor: colors.success },
+  tagTextSuccess: { color: colors.onSuccess },
   delBtn: {
     width: 34,
     height: 34,
