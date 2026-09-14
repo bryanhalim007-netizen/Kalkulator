@@ -7,28 +7,74 @@ import { formatJam, formatRupiah, formatTanggal } from "./format";
 export const WA_NUMBER = "628125559681";
 
 export function buildSaleMessage(item: Sale): string {
-  const line = (label: string, value?: string | null) =>
-    `${label}: ${value && String(value).length ? value : "-"}`;
-  return [
-    "*Rincian Penjualan - SKBike*",
-    "",
-    line(
-      "Tanggal Penjualan",
-      item.tanggal_penjualan || formatTanggal(item.created_at),
-    ),
-    line("Jam Transaksi", formatJam(item.created_at)),
-    line("Nama Pembeli", item.nama_pembeli),
-    line("Nama Barang", item.nama_barang),
-    line("Kode Barang", item.kode_barang),
-    line("Ukuran & Warna", item.ukuran_warna),
-    line("Harga Modal", formatRupiah(item.harga_modal)),
-    line("Margin", formatRupiah(item.margin)),
-    line("Harga Jual", formatRupiah(item.harga_jual)),
-    line("Metode Pembayaran", item.metode_pembayaran),
-    line("Sudah Diambil", item.sudah_diambil),
-    line("Metode Pengambilan", item.metode_pengambilan),
-    line("Alamat Pengiriman", item.alamat_pengiriman),
-  ].join("\n");
+  const lines: string[] = [];
+  const push = (s: string) => lines.push(s);
+  const info = (emoji: string, label: string, value?: string | null) => {
+    if (value && String(value).trim().length) {
+      push(`${emoji} *${label}:* ${value}`);
+    }
+  };
+  const DIV = "━━━━━━━━━━━━━━━━━━";
+
+  push("🚲 *S K B I K E*");
+  push("🧾 _Nota Penjualan_");
+  push(DIV);
+
+  info(
+    "🗓️",
+    "Tanggal",
+    item.tanggal_penjualan || formatTanggal(item.created_at),
+  );
+  info("🕒", "Jam", formatJam(item.created_at));
+
+  if (item.nama_pembeli || item.nama_barang || item.kode_barang || item.ukuran_warna) {
+    push("");
+  }
+  info("👤", "Pembeli", item.nama_pembeli);
+  info("🚲", "Barang", item.nama_barang);
+  info("🔖", "Kode Barang", item.kode_barang);
+  info("📐", "Ukuran & Warna", item.ukuran_warna);
+
+  if (
+    item.metode_pembayaran ||
+    item.metode_pengambilan ||
+    item.alamat_pengiriman ||
+    item.sudah_diambil
+  ) {
+    push("");
+  }
+  info("💳", "Pembayaran", item.metode_pembayaran);
+  info("🚚", "Pengambilan", item.metode_pengambilan);
+  info("📍", "Alamat", item.alamat_pengiriman);
+  if (item.sudah_diambil) {
+    const done = item.sudah_diambil === "Sudah";
+    push(`${done ? "✅" : "⏳"} *Status:* ${done ? "Sudah diambil" : "Belum diambil"}`);
+  }
+
+  // Rincian harga (rata kanan dalam blok monospace).
+  const rows: [string, number][] = [];
+  if (item.harga_modal != null) rows.push(["Modal", item.harga_modal]);
+  if (item.margin != null) rows.push(["Margin", item.margin]);
+  const amounts = rows.map(([, v]) => formatRupiah(v));
+  const total = formatRupiah(item.harga_jual);
+  const width = Math.max(...[...amounts, total].map((a) => a.length));
+  const labelW = 7;
+
+  push("");
+  push(DIV);
+  push("💰 *RINCIAN HARGA*");
+  push("```");
+  rows.forEach(([label], i) => {
+    push(`${label.padEnd(labelW)}${amounts[i].padStart(width)}`);
+  });
+  push(`${"TOTAL".padEnd(labelW)}${total.padStart(width)}`);
+  push("```");
+  push(DIV);
+  push("");
+  push("🙏 _Terima kasih telah berbelanja_");
+  push("     _di SKBike!_");
+
+  return lines.join("\n");
 }
 
 // Official WhatsApp click-to-chat link: works on iOS, Android & web,
